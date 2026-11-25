@@ -1,0 +1,988 @@
+<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>Ders Videosu Stüdyosu</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!--
+  Ders Videosu Stüdyosu v4 — tek dosya, sunucu gerekmez.
+  v3'e göre: kayıt sırasında kalem gecikmesi giderildi.
+   - Tahta katmanlara ayrıldı (taban / mürekkep / arayüz). Çizilen çizgi her karede baştan değil,
+     sadece yeni parçasıyla çiziliyor.
+   - Kayıt görüntüsü her karede baştan çizilmiyor; sadece değişen bölge (yeni çizgi, imleç, kamera)
+     tek seferde ve ölçeklemeden kopyalanıyor.
+   - Kalemin havada gezinmesi artık tüm tahtayı yeniden çizdirmiyor.
+-->
+<style>
+:root{--bg:#161817;--pan:#202321;--ln:#34393a;--fg:#ecece6;--ac:#e8d9a0;--ok:#7fd1a0;--topH:42px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:13px system-ui,sans-serif;overflow:hidden;overscroll-behavior:none}
+[hidden]{display:none!important}
+button{font:inherit;font-size:12px;color:var(--fg);background:var(--pan);border:1px solid var(--ln);border-radius:7px;padding:5px 9px;cursor:pointer;white-space:nowrap;flex:none;touch-action:manipulation}
+button:hover{border-color:var(--ac)}button.on{background:var(--ac);color:#1b1b17;border-color:var(--ac)}button.go{background:var(--ok);color:#102016;border-color:var(--ok);font-weight:600}
+button:disabled{opacity:.55;cursor:default}button:disabled:hover{border-color:var(--ln)}
+input[type=text]{background:#111312;color:var(--fg);border:1px solid var(--ln);border-radius:7px;padding:8px;font:inherit}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+#top{height:var(--topH);display:flex;align-items:center;gap:4px;padding:4px 6px}
+#bar{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex:1;align-items:center;min-width:0}#bar::-webkit-scrollbar{display:none}
+#st{color:#a9aea8;padding:0 6px;flex:none;max-width:160px;overflow:hidden;text-overflow:ellipsis}#tabs,#pn{display:flex;gap:6px;align-items:center}
+#ver{color:#6d726d;font-size:11px;padding:0 6px;flex:none}
+#toast{position:fixed;top:calc(var(--topH) + 10px);left:50%;transform:translateX(-50%);background:#7a2b2b;color:#fff;padding:8px 14px;border-radius:10px;z-index:12;cursor:pointer;max-width:92vw;text-align:center}
+#mm{position:fixed;inset:0;background:#000c;z-index:9;display:flex;align-items:center;justify-content:center;padding:12px}#mm>div{background:var(--pan);border:1px solid var(--ln);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;text-align:center;max-width:92vw}
+#mh{position:fixed;z-index:8;width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:var(--ac);color:#1b1b17;border-radius:6px;cursor:grab;touch-action:none;user-select:none}
+#fb{position:fixed;z-index:8;background:var(--pan);border:1px solid var(--ln);border-radius:10px;padding:4px 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;max-width:calc(100vw - 8px)}#fb button{padding:4px 8px}
+#te{position:fixed;z-index:7;background:rgba(128,128,128,.15);border:1px dashed #e8d9a0;outline:0;resize:none;overflow:hidden;margin:0;line-height:1.25;touch-action:manipulation}
+#sb{position:fixed;z-index:6;background:var(--pan);border:1px solid var(--ln);border-radius:10px;padding:4px 6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;max-width:calc(100vw - 8px)}
+#stage{position:absolute;overflow:hidden;touch-action:none}
+#wrapS{position:fixed;left:0;right:0;top:var(--topH);bottom:0;display:flex;align-items:center;justify-content:center;padding:6px}
+#studio{position:relative;width:min(100%,calc((100% - 12px)*16/9));max-height:100%;aspect-ratio:16/9;background:#000}#lay{width:100%;height:100%;display:block}
+#ink,#ui{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;visibility:hidden}
+#plas{position:absolute;left:0;top:0;pointer-events:none;display:none;will-change:transform;width:64px;height:72px}
+#camV{position:absolute;object-fit:cover;background:#0a0c0b;box-sizing:border-box}
+#sp{position:fixed;right:10px;top:calc(var(--topH) + 8px);width:min(320px,92vw);max-height:calc(100% - var(--topH) - 16px);overflow:auto;-webkit-overflow-scrolling:touch;z-index:9;background:var(--pan);border:1px solid var(--ln);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+#sp label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:#b8bdb6}#sp label.ck{flex-direction:row;align-items:center;gap:6px}
+#sp input[type=text],#sp input[type=number],#sp select{background:#111312;color:var(--fg);border:1px solid var(--ln);border-radius:7px;padding:6px;font:inherit;width:100%}
+#sp input[type=color]{width:100%;height:32px;border:1px solid var(--ln);border-radius:7px;background:#111312}.two{display:flex;gap:8px}.two>label{flex:1}#lv{width:100%;height:10px;background:#111312;border-radius:5px}
+#cd{position:fixed;inset:0;z-index:12;display:flex;align-items:center;justify-content:center;font:700 min(160px,36vw) Georgia,serif;color:#fff;text-shadow:0 0 30px #000;pointer-events:none}
+#rd{position:fixed;inset:0;background:#000c;z-index:13;display:flex;align-items:center;justify-content:center;padding:12px}#rd>div{background:var(--pan);border:1px solid var(--ln);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;text-align:center;max-width:92vw}
+#tm{color:#e8d9a0;font-variant-numeric:tabular-nums;padding:0 4px;flex:none}#cv{width:100%;height:100%;touch-action:none;display:block}
+#tb{position:fixed;z-index:5;background:var(--pan);border:1px solid var(--ln);border-radius:12px;padding:5px;display:flex;gap:4px;scrollbar-width:none;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:none}#tb::-webkit-scrollbar{display:none}
+#tb.v{flex-direction:column;max-height:calc(100% - var(--topH) - 16px)}#tb.h{max-width:calc(100% - 16px)}
+#tb button{width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center}
+#hd{cursor:grab;text-align:center;color:#888;touch-action:none;user-select:none;flex:none;line-height:10px;padding:2px 6px}
+#pop{position:fixed;z-index:6;background:var(--pan);border:1px solid var(--ln);border-radius:10px;padding:8px;width:min(210px,calc(100vw - 8px));max-height:calc(100% - var(--topH) - 12px);overflow:auto}
+#pop label{display:block;margin:4px 0}#pop input[type=range]{width:100%;height:26px}
+.sw i{width:24px;height:24px;border-radius:50%;display:inline-block;margin:3px;border:2px solid transparent;cursor:pointer}.sw i.on{border-color:#fff}
+.gr{display:grid;grid-template-columns:1fr 1fr;gap:4px}.gr button{padding:6px 4px}
+@media (pointer:coarse),(max-width:1024px){
+  :root{--topH:46px}
+  #tb button{width:40px;height:40px}
+  #bar button{min-height:36px;padding:7px 11px}
+  #hd{padding:8px 10px}
+  #ver{display:none}
+}
+@media (max-height:520px) and (pointer:coarse){
+  :root{--topH:40px}
+  #tb button{width:34px;height:34px}
+  #bar button{min-height:32px;padding:5px 9px}
+}
+</style></head><body>
+<div id="app">
+ <div id="top"><button onclick="bar.scrollBy(-220,0)">‹</button>
+  <div id="bar">
+   <button id="bsp" onclick="$('sp').hidden=!$('sp').hidden">Kayıt Ayarları</button>
+   <button id="brs" class="go" onclick="recStart()">● Kaydı Başlat</button><button id="brp" onclick="recPause()" disabled>Duraklat</button><button id="bre" onclick="recStop()" disabled>Bitir</button><span id="tm">0:00</span><span id="dg" style="color:#8f948d;padding:0 4px;flex:none"></span>
+   <input id="mk" type="text" placeholder="Bölüm adı" size="14" onkeydown="if(event.key==='Enter')addMark()"><button onclick="addMark()">Bölüm İşareti</button>
+   <button onclick="$('fi').click()">Dosya Ekle</button><input id="fi" type="file" accept="application/pdf,image/*" multiple hidden onchange="addFiles([...this.files]);this.value=''"><span id="tabs"></span><span id="pn" hidden><button onclick="pageGo(-1)">‹ Önceki</button><button id="pl" title="Sayfayı sığdır" onclick="pfit()">1 / 1</button><button onclick="pageGo(1)">Sonraki ›</button></span>
+   <button id="bzo" onclick="zoom(1/1.2)">−</button><button id="bzi" onclick="zoom(1.2)">+</button><button id="bzf" onclick="z=1;view()">Enine Sığdır</button>
+   <button onclick="openCast()">Çekim Penceresi</button><button id="bf" onclick="fs()">Tam Ekran</button><button id="bpo" title="Açıkken kalem çizer, parmak tahtayı kaydırır" onclick="penOnly=!penOnly;this.classList.toggle('on',penOnly);this.textContent='Kalem Modu: '+(penOnly?'Açık':'Kapalı')">Kalem Modu: Kapalı</button>
+  </div><button onclick="bar.scrollBy(220,0)">›</button><span id="st"></span><span id="ver">Stüdyo v4</span></div>
+ <div id="wrapS"><div id="studio"><canvas id="lay" width="1920" height="1080"></canvas><div id="stage"><canvas id="cv"></canvas><canvas id="ink"></canvas><canvas id="ui"></canvas><canvas id="plas"></canvas></div><video id="camV" autoplay muted playsinline></video></div></div>
+ <div id="cd" hidden></div>
+ <div id="sp"><b>Kayıt ayarları</b>
+  <label>Ders adı<input id="f_c" type="text"></label><label>Konu<input id="f_t" type="text"></label>
+  <div class="two"><label>Gün<input id="f_d" type="number" min="1"></label><label>Adım<input id="f_s" type="number" min="1"></label></div>
+  <label>Logo<input id="f_l" type="file" accept="image/*"></label>
+  <div class="two"><label>Tema rengi<input id="f_th" type="color"></label><label>Çerçeve rengi<input id="f_fr" type="color"></label></div>
+  <label>Kamera<select id="f_cam"></select></label><label>Mikrofon<select id="f_mic"></select></label><canvas id="lv" width="260" height="10"></canvas>
+  <div class="two"><label class="ck"><input id="f_cs" type="checkbox">Kamerayı göster</label><label>Oran<select id="f_ca"><option>4:3</option><option>16:9</option><option>1:1</option><option>3:4</option></select></label></div>
+  <label>Sol sütun<select id="f_col"><option value="dar">Dar</option><option value="orta">Orta</option></select></label>
+  <label>Kayıt biçimi<select id="f_fm"><option value="auto">Otomatik (MP4 öncelikli)</option><option value="mp4">MP4 (H.264)</option><option value="vp8">WebM (VP8)</option><option value="vp9">WebM (VP9)</option></select></label>
+  <label>Çözünürlük<select id="f_r"><option value="1080">1080p</option><option value="720">720p</option></select></label>
+  <label class="ck"><input id="f_in" type="checkbox">Başlangıçta 3 sn açılış kartı</label><div id="fmt" style="color:#8f948d"></div><button onclick="$('sp').hidden=1">Kapat</button></div>
+ <div id="rd" hidden><div><b>Kayıt hazır</b><div id="rdi"></div><div class="row"><button class="go" onclick="dlVideo()">Videoyu indir</button><button onclick="dlMarks()">Bölümleri indir (.txt)</button></div><div class="row"><button onclick="newVid()">Yeni video (adım +1)</button><button onclick="$('rd').hidden=1">Kapat</button></div></div></div>
+ <div id="tb" class="v"><div id="hd" title="Taşı">⠿</div></div><div id="pop" hidden></div>
+ <div id="toast" hidden onclick="this.hidden=1"></div>
+ <div id="mm" hidden><div><b>Belge nasıl gösterilsin?</b><div class="row"><button class="go" data-v="all">Tüm sayfalar alt alta</button><button data-v="one">Sayfa sayfa (slayt)</button></div></div></div>
+ <div id="mh" hidden title="Taşı">⠿</div><div id="fb" hidden><button data-b="f-">A−</button><button data-b="f+">A+</button><button data-b="b"><b>B</b></button><button data-b="i"><i>I</i></button><button data-b="fam">Aa</button><button data-b="al">≡</button><span class="sw"><i data-bc="0"></i><i data-bc="1"></i><i data-bc="2"></i><i data-bc="3"></i><i data-bc="4"></i><i data-bc="5"></i></span></div>
+ <div id="sb" hidden><button data-a="del">Sil</button><span id="tx2" hidden><button data-a="f-">A−</button><button data-a="f+">A+</button><button data-a="b"><b>B</b></button><button data-a="i"><i>I</i></button><button data-a="fam">Aa</button><button data-a="al">≡</button></span><span class="sw"><i data-c="0"></i><i data-c="1"></i><i data-c="2"></i><i data-c="3"></i><i data-c="4"></i><i data-c="5"></i></span></div>
+</div>
+<script>
+'use strict';
+/* =====================================================================
+   Sabitler ve durum
+   ===================================================================== */
+const $ = id => document.getElementById(id), bar = $('bar'), cv = $('cv'), inkC = $('ink'), uiC = $('ui');
+const PW = 800, PH = 1131, GAP = 24, M = 24;                       // sayfa genişliği/yüksekliği (dünya birimi)
+const PAL = [['#f4f3ec', '#f2d96b', '#7fc4f0', '#f09ab8', '#8fe0a4', '#f2a36b'], ['#1b1b1b', '#b58a00', '#1f6fb5', '#c2306a', '#2e8b4f', '#d2691e']];
+const S = { tx: { fam: 'sans', fs: 28, b: 0, i: 0, c: 0, al: 'c' }, pen: { w: 2.5, c: 0, d: 0 }, hl: { w: 20, c: 1 }, er: { w: 24, m: 'part' }, sh: { w: 2.5, c: 0, t: 'line', a: 1, f: 0 } };
+const SH = [['line', 'Çizgi'], ['dash', 'Kesikli'], ['arrow', 'Ok'], ['rect', 'Dörtgen'], ['tri', 'Üçgen'], ['rtri', 'Dik üçgen'], ['ell', 'Elips/Daire']];
+const TH = [['b', 'Siyah'], ['bg', 'Siyah kareli'], ['w', 'Beyaz'], ['wg', 'Beyaz kareli']];
+const FILL = ['rect', 'tri', 'rtri', 'ell'], ALS = ['l', 'c', 'r', 'j'];
+const FAM = { sans: 'Arial,Helvetica,sans-serif', serif: 'Georgia,"Times New Roman",serif', mono: '"Courier New",monospace', hand: '"Comic Sans MS","Segoe Print","Bradley Hand",cursive' }, FK = Object.keys(FAM);
+const mg = document.createElement('canvas').getContext('2d');
+
+let objs = [], cur = null, hist = [], redo = [], theme = 'b';
+let pg = [{ h: PH }, { h: PH }, { h: PH }], sheets = [{ pg }], cs = 0;
+let z = 1, ox = 0, oy = 0, cw = 1, ch = 1;
+let tool = 'pen', mode = 'pan', penOnly = false, shapeRec = true;
+let sel = [], sm = 0, sa, so = {}, sb_, sh_, selR = null;
+let laser = null, te = null, editId = null, tp = null, teObj = null;
+let dn = false, fp = false, last = null, start = null, tt = 0, perfect = 0, recDone = 0, ht = 0, ha = null, lp = null;
+let ptrs = {}, pinch = null, uid = 0, side = 'l', pt_ = null, pb = null, rct = null;
+// çizim döngüsü bayrakları
+let viewDirty = 1, baseRegion = null, curDirty = 0, uiDirty = 1, ovVer = 0;
+
+const dark = () => !cs && theme[0] === 'b', pal = () => PAL[dark() ? 0 : 1], sc = () => cw / (PW + 2 * M) * z, note = t => $('st').textContent = t;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const uni = (a, b) => !a ? b : !b ? a : [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+const inter = (a, b) => a && b && a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+function fs() { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen && document.documentElement.requestFullscreen() }
+document.onfullscreenchange = () => $('bf').textContent = document.fullscreenElement ? 'Tam Ekranı Kapat' : 'Tam Ekran';
+
+/* =====================================================================
+   Görünüm (kaydırma / yakınlaştırma)
+   ===================================================================== */
+const dhf = () => pg.reduce((a, p) => a + p.h + GAP, 0), ptop = i => pg.slice(0, i).reduce((a, p) => a + p.h + GAP, 0);
+function clamp() {
+  const s = sc(), vw = cw / s, vh = ch / s, dh = dhf();
+  ox = vw >= PW + 2 * M ? -(vw - PW) / 2 : Math.min(Math.max(ox, -M), PW + M - vw);
+  const sh = sheets[cs];
+  if (sh && sh.one) { const pi = sh.pi || 0, t = ptop(pi), h = pg[pi].h; oy = vh >= h + 2 * M ? t - (vh - h) / 2 : Math.min(Math.max(oy, t - M), t + h + M - vh) }
+  else oy = Math.min(Math.max(oy, -M), Math.max(-M, dh - vh + M));
+  if (!cs && oy + vh > dh - PH * .3) pg.push({ h: PH });
+  viewDirty = 1;
+}
+function view() { clamp() }
+function zoomAt(cx, cy, f) { const r = cv.getBoundingClientRect(), p = pt({ clientX: cx, clientY: cy }); z = Math.min(5, Math.max(.2, z * f)); const s = sc(); ox = p[0] - (cx - r.left) / s; oy = p[1] - (cy - r.top) / s; view() }
+function zoom(f) { const r = cv.getBoundingClientRect(); zoomAt(r.left + cw / 2, r.top + ch / 2, f) }
+const rect = () => rct || (rct = cv.getBoundingClientRect());
+const pt = e => { const r = rect(), s = sc(); return [(e.clientX - r.left) / s + ox, (e.clientY - r.top) / s + oy] };
+addEventListener('resize', () => rct = null); addEventListener('scroll', () => rct = null, true);
+
+/* =====================================================================
+   Nesne geometrisi ve çizimi (Path2D önbellekli)
+   ===================================================================== */
+function poly(o) {
+  const { x1, y1, x2, y2 } = o, mx = (x1 + x2) / 2;
+  switch (o.t) {
+    case 'text': case 'rect': return [[x1, y1], [x2, y1], [x2, y2], [x1, y2], [x1, y1]];
+    case 'tri': return [[mx, y1], [x2, y2], [x1, y2], [mx, y1]];
+    case 'rtri': return [[x1, y1], [x1, y2], [x2, y2], [x1, y1]];
+    case 'ell': { const a = []; for (let i = 0; i <= 48; i++) { const t = i / 48 * 6.2832; a.push([mx + Math.cos(t) * (x2 - x1) / 2, (y1 + y2) / 2 + Math.sin(t) * (y2 - y1) / 2]) } return a }
+    default: return [[x1, y1], [x2, y2]];
+  }
+}
+function buildPath(o) {
+  const P = new Path2D(), p = o.p || poly(o);
+  if (o.p && !o.sh && !o.ds && p.length > 2) {   // serbest çizim: yumuşatılmış eğri (kesikli kalem düz parçalarla)
+    P.moveTo(p[0][0], p[0][1]);
+    for (let i = 1; i < p.length - 1; i++) P.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);
+    P.lineTo(p[p.length - 1][0], p[p.length - 1][1]);
+  } else {
+    p.forEach((q, i) => i ? P.lineTo(q[0], q[1]) : P.moveTo(q[0], q[1]));
+    if (p.length === 1) P.lineTo(p[0][0] + .01, p[0][1]);
+  }
+  if (o.t === 'arrow') { const a = Math.atan2(o.y2 - o.y1, o.x2 - o.x1), l = 10 + o.w * 2; for (const d of [-.45, .45]) { P.moveTo(o.x2, o.y2); P.lineTo(o.x2 - l * Math.cos(a + d), o.y2 - l * Math.sin(a + d)) } }
+  return P;
+}
+// Nesneler değişmez (her değişiklikte yeni nesne oluşur), bu yüzden yol ve sınır kutusu önbelleklenebilir.
+const PC = new WeakMap(), BB = new WeakMap();
+function objPath(o) { let p = PC.get(o); if (!p) { p = buildPath(o); PC.set(o, p) } return p }
+function ob(o) { let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (const q of (o.p || poly(o))) { if (q[0] < a) a = q[0]; if (q[1] < b) b = q[1]; if (q[0] > c) c = q[0]; if (q[1] > d) d = q[1] } return [a, b, c, d] }
+function boxOf(o) {
+  if (o.t === 'text') { const p = o.fs * .35 + 6; return [o.x1 - p, o.y1 - p, o.x2 + p, o.y2 + p] }
+  const q = ob(o), p = o.w / 2 + 2 + (o.t === 'arrow' ? 10 + o.w * 2 : 0); return [q[0] - p, q[1] - p, q[2] + p, q[3] + p];
+}
+function bbox(o) { let b = BB.get(o); if (!b) { b = boxOf(o); BB.set(o, b) } return b }
+const fnt = o => `${o.i ? 'italic ' : ''}${o.b ? 'bold ' : ''}${o.fs}px ${FAM[o.fam]}`;
+function drawText(g, o) {
+  g.save(); g.fillStyle = pal()[o.c]; g.font = fnt(o); g.textBaseline = 'top'; const al = o.al || 'l', W = o.x2 - o.x1 - 8;
+  o.lines.forEach((l, i) => {
+    const y = o.y1 + 4 + i * o.fs * 1.25;
+    if (al === 'j' && !(o.ends && o.ends[i]) && l.includes(' ')) { const w = l.split(' '), tw = w.reduce((a, x) => a + g.measureText(x).width, 0), gp = (W - tw) / (w.length - 1); let x = o.x1 + 4; g.textAlign = 'left'; w.forEach(wd => { g.fillText(wd, x, y); x += g.measureText(wd).width + gp }) }
+    else { g.textAlign = al === 'c' ? 'center' : al === 'r' ? 'right' : 'left'; g.fillText(l, al === 'c' ? o.x1 + 4 + W / 2 : al === 'r' ? o.x2 - 4 : o.x1 + 4, y) }
+  }); g.restore();
+}
+function drawObj(g, o, live, opaqueHl) {
+  if (o.t === 'text') return drawText(g, o);
+  g.save(); g.strokeStyle = pal()[o.c]; g.lineWidth = o.w; g.globalAlpha = o.t === 'hl' ? (opaqueHl ? 1 : .35) : o.f ? 1 : o.a == null ? 1 : o.a; g.lineCap = o.t === 'hl' ? 'butt' : 'round'; g.lineJoin = 'round';
+  if (o.t === 'dash' || o.ds) g.setLineDash([o.w * 2.4, o.w * 2.4]);
+  const P = live ? buildPath(o) : objPath(o);
+  if (o.f && FILL.includes(o.t)) { g.save(); g.globalAlpha = o.a; g.fillStyle = pal()[o.c]; g.fill(P); g.restore() }
+  g.stroke(P); g.restore();
+}
+function hit(o, x, y, r) {
+  const b = bbox(o); if (x < b[0] - r || x > b[2] + r || y < b[1] - r || y > b[3] + r) return 0;
+  if (o.t === 'text') return x >= o.x1 - r && x <= o.x2 + r && y >= o.y1 - r && y <= o.y2 + r;
+  const p = o.p || poly(o), R = r + o.w / 2;
+  for (let i = 0; i < p.length; i++) { const a = p[i], b = p[i + 1] || a, dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy, t = l ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / l)) : 0; if (Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy) < R) return 1 }
+  return 0;
+}
+
+/* =====================================================================
+   Çizim yüzeyleri
+   SCR: ekrandaki tahta (taban + mürekkep + arayüz katmanı)
+   REC: kayıt için, kayıttaki tahta alanıyla birebir aynı piksel boyutunda kopyası.
+        Sadece kayıt / çekim penceresi açıkken çalışır.
+   ===================================================================== */
+const SCR = { b: cv.getContext('2d', { alpha: false }), i: inkC.getContext('2d'), k: 1, W: 1, H: 1 };
+const recBase = document.createElement('canvas'), recInk = document.createElement('canvas');
+const REC = { b: recBase.getContext('2d', { alpha: false }), i: recInk.getContext('2d'), k: 1, W: 1, H: 1, on: false };
+const uiG = uiC.getContext('2d');
+const surfs = () => REC.on ? [SCR, REC] : [SCR];
+function setW(g, sf) { const m = sf.k * sc(); g.setTransform(m, 0, 0, m, -ox * m, -oy * m) }
+function pxRect(sf, w, pad = 2) {
+  const m = sf.k * sc();
+  const r = [Math.max(0, Math.floor((w[0] - ox) * m) - pad), Math.max(0, Math.floor((w[1] - oy) * m) - pad), Math.min(sf.W, Math.ceil((w[2] - ox) * m) + pad), Math.min(sf.H, Math.ceil((w[3] - oy) * m) + pad)];
+  return r[2] > r[0] && r[3] > r[1] ? r : null;
+}
+const GRID = new Map();
+function gridPath(h) {
+  let P = GRID.get(h); if (P) return P; P = new Path2D();
+  for (let x = 20; x < PW; x += 20) { P.moveTo(x, 0); P.lineTo(x, h) } for (let v = 20; v < h; v += 20) { P.moveTo(0, v); P.lineTo(PW, v) }
+  GRID.set(h, P); return P;
+}
+// Taban katmanını çiz: w verilirse sadece o bölge (dünya koordinatı) yeniden çizilir.
+function paintBase(sf, w) {
+  const g = sf.b; g.setTransform(1, 0, 0, 1, 0, 0);
+  let R = [0, 0, sf.W, sf.H];
+  if (w) { R = pxRect(sf, w); if (!R) return; g.save(); g.beginPath(); g.rect(R[0], R[1], R[2] - R[0], R[3] - R[1]); g.clip() }
+  g.fillStyle = '#262928'; g.fillRect(R[0], R[1], R[2] - R[0], R[3] - R[1]);
+  const m = sf.k * sc(); setW(g, sf); g.imageSmoothingQuality = 'high';
+  const v = [R[0] / m + ox, R[1] / m + oy, R[2] / m + ox, R[3] / m + oy], dk = dark();
+  let y = 0;
+  for (const p of pg) {
+    const h = p.h;
+    if (y + h >= v[1] && y <= v[3]) {
+      g.fillStyle = p.img ? '#fff' : dk ? '#0d0f0e' : '#fbfbf8'; g.fillRect(0, y, PW, h);
+      if (p.img) { if (p.img.naturalWidth) g.drawImage(p.img, 0, y, PW, h); else if (!p.img._w) { p.img._w = 1; p.img.addEventListener('load', () => viewDirty = 1) } }
+      else if (theme.length > 1) { g.save(); g.translate(0, y); g.strokeStyle = dk ? 'rgba(255,255,255,.17)' : 'rgba(0,0,0,.17)'; g.lineWidth = .8; g.stroke(gridPath(h)); g.restore() }
+    }
+    y += h + GAP; if (y > v[3]) break;
+  }
+  for (const o of objs) { if (o.id === editId) continue; const b = bbox(o); if (b[2] < v[0] || b[0] > v[2] || b[3] < v[1] || b[1] > v[3]) continue; drawObj(g, o) }
+  if (w) g.restore(); else g.setTransform(1, 0, 0, 1, 0, 0);
+}
+function addBaseRegion(r) { if (r) baseRegion = uni(baseRegion, r) }
+// Nesne listesini değiştir; sadece değişen nesnelerin kapladığı bölge yeniden çizilir.
+function setObjs(n) {
+  const a = new Set(objs), b = new Set(n); let r = null;
+  for (const o of objs) if (!b.has(o)) r = uni(r, bbox(o));
+  for (const o of n) if (!a.has(o)) r = uni(r, bbox(o));
+  objs = n; addBaseRegion(r);
+}
+
+/* ---- Canlı mürekkep: çizilmekte olan çizgi. Kalem için sadece yeni parçalar çizilir. ---- */
+let ink = null;
+// Mürekkep katmanı sadece çizim sürerken görünür; boşken ekran birleştiricisine yük olmasın.
+function inkShow(on) { const v = on ? 'visible' : 'hidden'; if (inkC.style.visibility !== v) inkC.style.visibility = v }
+// Fosforlu kalem canlı katmana opak çizilir; şeffaflığı katmanın kendisi verir (üst üste binen parçalar koyulaşmasın).
+const inkAlpha = () => cur && cur.t === 'hl' ? .35 : 1;
+function inkStart() { ink = { i: 1, d: 0, L: [0], box: null, full: false, dot: false }; inkC.style.opacity = inkAlpha(); inkShow(true) }
+function inkClear(box) { if (!box) return; for (const sf of surfs()) { const r = pxRect(sf, box, 3); if (r) { sf.i.setTransform(1, 0, 0, 1, 0, 0); sf.i.clearRect(r[0], r[1], r[2] - r[0], r[3] - r[1]) } } }
+function liveBox(o) { return boxOf(o) }
+function inkUpdate() {
+  if (!cur || !ink) return;
+  const c = cur, inc = c.p && !c.sh && (c.t === 'pen' || c.t === 'hl') && !ink.full;
+  if (inc) {
+    // Sadece yeni gelen parçalar çizilir (bir önceki parça da tekrar çizilir ki eklem yerleri pürüzsüz olsun).
+    const p = c.p, n = p.length, w = c.w / 2 + 2, hl = c.t === 'hl', dash = !!c.ds, P = new Path2D();
+    let box = null, any = false, off = 0;
+    const add = q => { box = uni(box, [q[0] - w, q[1] - w, q[0] + w, q[1] + w]) };
+    const dot = () => { ink.dot = true; P.moveTo(p[0][0], p[0][1]); P.lineTo(p[0][0] + .01, p[0][1]); add(p[0]); any = true };
+    if (dash) {
+      // Kesikli kalem: düz parçalar + kesik deseninin kaldığı yerden devam etmesi (kaydedilen çizgiyle birebir aynı).
+      for (let k = ink.L.length; k < n; k++) ink.L.push(ink.L[k - 1] + Math.hypot(p[k][0] - p[k - 1][0], p[k][1] - p[k - 1][1]));
+      if (n === 1) { if (!ink.dot) dot() }
+      else if (n - 1 > ink.d) {
+        const from = Math.max(0, ink.d - 1); off = ink.L[from]; P.moveTo(p[from][0], p[from][1]); add(p[from]);
+        for (let k = from + 1; k < n; k++) { P.lineTo(p[k][0], p[k][1]); add(p[k]) }
+        ink.d = n - 1; any = true;
+      }
+    } else {
+      if (!ink.dot && !hl) dot();
+      if (n - 2 >= ink.i) {
+        const a = Math.max(1, ink.i - 1), st = a === 1 ? p[0] : [(p[a - 1][0] + p[a][0]) / 2, (p[a - 1][1] + p[a][1]) / 2];
+        P.moveTo(st[0], st[1]); add(st);
+        for (let i = a; i <= n - 2; i++) { const e = [(p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2]; P.quadraticCurveTo(p[i][0], p[i][1], e[0], e[1]); add(p[i]); add(e) }
+        ink.i = n - 1; any = true;
+      }
+    }
+    if (!any) return;
+    for (const sf of surfs()) {
+      const g = sf.i; setW(g, sf); g.globalAlpha = 1; g.strokeStyle = pal()[c.c]; g.lineWidth = c.w; g.lineCap = hl ? 'butt' : 'round'; g.lineJoin = 'round';
+      if (dash) { g.setLineDash([c.w * 2.4, c.w * 2.4]); g.lineDashOffset = off } else g.setLineDash([]);
+      g.stroke(P); g.setLineDash([]); g.lineDashOffset = 0;
+    }
+    ink.box = uni(ink.box, box); markDirty(box);
+  } else {
+    const nb = liveBox(c), r = uni(ink.box, nb);
+    inkClear(ink.box);
+    for (const sf of surfs()) { setW(sf.i, sf); drawObj(sf.i, c, true, true) }
+    ink.box = nb; ink.full = true; markDirty(r);
+  }
+}
+function commitCur() {
+  const o = cur; cur = null; if (!o) return;
+  const box = bbox(o), clr = uni(ink && ink.box, box);
+  snap(); objs = objs.concat(o);
+  for (const sf of surfs()) { setW(sf.b, sf); drawObj(sf.b, o); sf.b.setTransform(1, 0, 0, 1, 0, 0) }
+  inkClear(clr); markDirty(clr); ink = null; inkShow(false);
+}
+function cancelCur() { if (ink) { inkClear(ink.box); markDirty(ink.box) } cur = null; ink = null; inkShow(false) }
+
+/* ---- Arayüz katmanı (sadece ekranda): lazer, seçim kutusu ---- */
+let uiSel = false;
+function lasBox(x, y, K) { return [x - 30 * K - 16, y - 24 * K - 16, x + 30 * K + 16, y + 48 * K + 16] }
+function drawLaser(g, L, s) {
+  g.save(); g.fillStyle = '#ff3b3b'; g.shadowColor = '#ff3b3b'; g.shadowBlur = 12; g.beginPath(); g.arc(L.x, L.y, 5 / s, 0, 7); g.fill(); g.shadowBlur = 0;
+  g.font = (34 / s) + 'px "Segoe UI Symbol","Segoe UI Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('☝︎', L.x, L.y + 3 / s); g.restore();
+}
+// Lazer, bir kez çizilmiş küçük öğe; sadece yeri değişir (tahta yeniden çizilmez).
+const plas = $('plas');
+function buildCursors(d) {
+  plas.width = Math.round(64 * d); plas.height = Math.round(72 * d); const g = plas.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); drawLaser(g, { x: 32, y: 20 }, 1);
+}
+function placeEl(el, on, x, y, dx, dy) {
+  if (!on) { if (el.style.display !== 'none') el.style.display = 'none'; return }
+  el.style.transform = `translate3d(${x - dx}px,${y - dy}px,0)`; if (el.style.display !== 'block') el.style.display = 'block';
+}
+function drawUI() {
+  const s = sc();
+  placeEl(plas, !!laser, laser ? (laser.x - ox) * s : 0, laser ? (laser.y - oy) * s : 0, 32, 20);
+  // Seçim kutusu: sadece seçim aracındayken görünen ayrı katman.
+  const g = uiG, on = tool === 'sel';
+  if (uiSel || on) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, SCR.W, SCR.H) }
+  uiSel = on; uiC.style.visibility = on ? 'visible' : 'hidden';
+  if (on) { const m = SCR.k * s; g.setTransform(m, 0, 0, m, -ox * m, -oy * m); selDraw(g, s); g.setTransform(1, 0, 0, 1, 0, 0) } else $('sb').hidden = 1;
+}
+
+/* ---- Ana döngü: tüm çizimler burada, kare başına bir kez ---- */
+let lastComp = 0;
+function loop() {
+  const now = performance.now();
+  if (laser && now - laser.t > 1500) { laser = null; uiDirty = 1; ovVer++ }
+  if (viewDirty) {
+    viewDirty = 0; baseRegion = null;
+    for (const sf of surfs()) { paintBase(sf, null); sf.i.setTransform(1, 0, 0, 1, 0, 0); sf.i.clearRect(0, 0, sf.W, sf.H) }
+    if (cur && ink) { ink.box = null; ink.full = true; curDirty = 1 }
+    markRecFull(); uiDirty = 1; ovVer++; if (te) tePos();
+  } else if (baseRegion) { const r = baseRegion; baseRegion = null; for (const sf of surfs()) paintBase(sf, r); markDirty(r) }
+  if (cur && curDirty) { curDirty = 0; inkUpdate() }
+  if (uiDirty) { uiDirty = 0; drawUI() }
+  if (compActive() && now - lastComp >= 31) { lastComp = now; compose(false) }
+  requestAnimationFrame(loop);
+}
+
+/* =====================================================================
+   Girdi (kalem / fare / dokunma)
+   ===================================================================== */
+function snap() { hist.push(objs.slice()); redo = [] }
+function erase(p) {
+  if (S.er.m === 'part') return eraseP(p);
+  const r = S.er.w / 2, n = objs.filter(o => !hit(o, p[0], p[1], r));
+  if (n.length !== objs.length) setObjs(n);
+}
+function setL(p) { laser = { x: p[0], y: p[1], t: performance.now() }; uiDirty = 1; ovVer++ }
+const co = e => { const a = e.getCoalescedEvents ? e.getCoalescedEvents() : []; return a.length ? a : [e] };
+function addPts(e) { for (const x of co(e)) { const pp = pt(x), q = cur.p[cur.p.length - 1]; if (Math.hypot(pp[0] - q[0], pp[1] - q[1]) > .6) cur.p.push(pp) } }
+
+cv.onpointerdown = e => {
+  rct = null; if (pt_) { pop(0); return }
+  cv.setPointerCapture(e.pointerId);
+  if (e.pointerType === 'pen' && (e.buttons & 34) && tool !== 'er') { tt = tool; tool = 'er' }
+  if (touchDown(e)) return;
+  const p = pt(e); dn = true; fp = false; perfect = 0; recDone = 0; clearTimeout(ht); ht = 0; ha = null; last = [e.clientX, e.clientY];
+  if (tool === 'hand') { if (mode === 'laser') setL(p); return }
+  if (tool === 'er') { snap(); erase(p); return }
+  if (tool === 'sel') return selDown(p, e);
+  if (tool === 'tx') { tp = p; return }
+  const id = ++uid + '_' + Date.now(); start = p;
+  if (tool === 'sh') cur = { id, t: S.sh.t, c: S.sh.c, w: S.sh.w, x1: p[0], y1: p[1], x2: p[0], y2: p[1], a: S.sh.a, f: S.sh.f };
+  else cur = { id, t: tool, c: S[tool].c, w: S[tool].w, p: [p], ds: tool === 'pen' && S.pen.d ? 1 : 0 };
+  inkStart(); curDirty = 1;
+};
+cv.onpointermove = e => {
+  if (e.pointerType === 'touch' && ptrs[e.pointerId]) {
+    ptrs[e.pointerId] = [e.clientX, e.clientY];
+    if (Object.keys(ptrs).length > 1) { gest(); return }
+    if (fp && dn) { const s = sc(); ox -= (e.clientX - last[0]) / s; oy -= (e.clientY - last[1]) / s; last = [e.clientX, e.clientY]; view(); return }
+  }
+  if (!dn || fp) return;
+  const p = pt(e);
+  if (tool === 'hand') { if (mode === 'laser') setL(p); else { const s = sc(); ox -= (e.clientX - last[0]) / s; oy -= (e.clientY - last[1]) / s; last = [e.clientX, e.clientY]; view() } return }
+  if (tool === 'er') { co(e).forEach(x => erase(pt(x))); return }
+  if (tool === 'sel') return selMove(p, e);
+  if (!cur || recDone) return;
+  if (cur.p) addPts(e); else shp(p, e.shiftKey ? 1 : perfect ? 2 : 0);
+  holdT(e); curDirty = 1;
+};
+cv.onpointerup = cv.onpointercancel = e => {
+  if (tt) { tool = tt; tt = 0 }
+  clearTimeout(ht); ht = 0;
+  if (e.pointerType === 'touch') { delete ptrs[e.pointerId]; pinch = null; if (Object.keys(ptrs).length > 1) gest(); if (fp) { fp = false; dn = false; return } }
+  if (!dn) return; dn = false;
+  if (tool === 'tx') return txUp();
+  if (tool === 'sel') return selUp();
+  if (cur) { if (curDirty) { curDirty = 0; inkUpdate() } commitCur() }
+};
+cv.onwheel = e => { e.preventDefault(); if (e.ctrlKey) zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.1 : 1 / 1.1); else { oy += e.deltaY / sc(); view() } };
+cv.oncontextmenu = e => e.preventDefault();
+function undo() { sel = []; uiDirty = 1; if (hist.length) { redo.push(objs); const n = hist.pop(); setObjs(n) } }
+function redoF() { sel = []; uiDirty = 1; if (redo.length) { hist.push(objs); const n = redo.pop(); setObjs(n) } }
+function setTheme(t) { theme = t; viewDirty = 1 }
+function touchDown(e) {
+  if (e.pointerType !== 'touch') return 0; ptrs[e.pointerId] = [e.clientX, e.clientY];
+  if (Object.keys(ptrs).length > 1) { cancelCur(); sm = 0; selR = null; pinch = null; dn = false; gest(); uiDirty = 1; return 1 }
+  if (penOnly) { dn = true; fp = true; last = [e.clientX, e.clientY]; return 1 }
+  return 0;
+}
+function gest() {
+  const k = Object.keys(ptrs); if (k.length < 2) { pinch = null; return }
+  const a = ptrs[k[0]], b = ptrs[k[1]], d = Math.hypot(a[0] - b[0], a[1] - b[1]), c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  if (pinch && d > 0 && pinch.d > 0) { zoomAt(c[0], c[1], d / pinch.d); const s = sc(); ox -= (c[0] - pinch.c[0]) / s; oy -= (c[1] - pinch.c[1]) / s; view() }
+  pinch = { d, c };
+}
+function dens(a) { const o = []; a.forEach((q, i) => { if (i) { const d = Math.hypot(q[0] - a[i - 1][0], q[1] - a[i - 1][1]), n = Math.ceil(d / 3); for (let k = 1; k < n; k++)o.push([a[i - 1][0] + (q[0] - a[i - 1][0]) * k / n, a[i - 1][1] + (q[1] - a[i - 1][1]) * k / n]) } o.push(q) }); return o }
+function eraseP(p) {
+  const R = S.er.w / 2, out = []; let chg = 0;
+  for (const o of objs) {
+    if (!hit(o, p[0], p[1], R)) { out.push(o); continue }
+    if (o.t === 'text') { chg = 1; continue }
+    const a = dens(o.p || poly(o)), keep = []; let c2 = [], rm = 0;
+    a.forEach(q => { if (Math.hypot(q[0] - p[0], q[1] - p[1]) > R + o.w / 2) c2.push(q); else { rm = 1; if (c2.length) keep.push(c2); c2 = [] } }); if (c2.length) keep.push(c2);
+    if (!rm) { out.push(o); continue }
+    chg = 1; keep.forEach((pc, k) => out.push({ id: o.id + '_' + k + Math.random().toString(36).slice(2, 5), t: o.t === 'dash' ? 'dash' : o.t === 'hl' ? 'hl' : 'pen', c: o.c, w: o.w, p: pc, ds: o.ds, a: o.f ? 1 : o.a }));
+  }
+  if (chg) setObjs(out);
+}
+
+/* =====================================================================
+   Araç çubuğu ve açılır menüler
+   ===================================================================== */
+const ic = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const TOOLS = [['hand', 'El', ic('<path d="M7.5 13V6a1.5 1.5 0 0 1 3 0v4.5V4a1.5 1.5 0 0 1 3 0v6.5V5a1.5 1.5 0 0 1 3 0v6V8.5a1.5 1.5 0 0 1 3 0V15c0 4-3 6.5-7 6.5-3 0-4.500-1.500-6-4L4.200 14a1.500 1.500 0 0 1 2.500-1.500z"/>')],
+['pen', 'Kalem', ic('<path d="M4 20l1-4L16 5l3 3L8 19zM14 7l3 3"/>')], ['hl', 'Fosforlu kalem', ic('<path d="M9 18l-3-3 9-9 3 3zM5 21h7"/>')], ['er', 'Silgi', ic('<path d="M4 16l9-9 6 6-6 6H8zM9 21h11"/>')],
+['un', 'Geri al (Ctrl+Z)', ic('<path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/>')], ['re', 'İleri al (Ctrl+Y)', ic('<path d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3"/>')],
+['sh', 'Şekiller', ic('<rect x="3" y="11" width="9" height="9"/><circle cx="15" cy="8" r="5"/>')], ['tx', 'Metin', ic('<path d="M5 7V4h14v3M12 4v16M9 20h6"/>')], ['sel', 'Seçim', ic('<rect x="4" y="4" width="13" height="13" stroke-dasharray="3 2.5"/><path d="M13 13l7 3-3 1-1 3z"/>')], ['cl', 'Ekranı temizle', ic('<path d="M5 6h14M9 6V4h6v2M7 6l1 14h8l1-14"/>')], ['bd', 'Tahta rengi', ic('<rect x="4" y="3" width="16" height="11" rx="1"/><path d="M12 14v2M12 16l-5 5M12 16l5 5M9.500 19h5"/>')]];
+function initBoard() {
+  const tb = $('tb');
+  TOOLS.forEach(([id, t, s]) => { const b = document.createElement('button'); b.dataset.t = id; b.title = t; b.innerHTML = s; tb.appendChild(b) });
+  tb.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return; const id = b.dataset.t;
+    if (id === 'un') return undo(); if (id === 're') return redoF();
+    if (id === 'cl') { sel = []; snap(); setObjs([]); uiDirty = 1; return }
+    if (id === 'bd') return pt_ === 'bd' ? pop(0) : pop(id, b);
+    if (tool === id) return id === 'sel' ? 0 : pt_ === id ? pop(0) : pop(id, b);
+    tool = id; sel = []; selR = null; uiDirty = 1; pop(0); tb.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('on', x === b));
+  };
+  tb.querySelector('[data-t=pen]').classList.add('on'); dock('l');
+  $('tabs').onclick = e => { const b = e.target.closest('button'); if (!b) return; b.dataset.x ? closeDoc(+b.dataset.x) : sheet(+b.dataset.i) }; tabs();
+  $('sb').onclick = e => {
+    const t = e.target.closest('[data-a],[data-c]'), d = t ? t.dataset : {};
+    if (d.a === 'del') delSel();
+    else if (d.c !== undefined) { snap(); setObjs(objs.map(o => sel.includes(o.id) ? { ...o, c: +d.c } : o)); uiDirty = 1 }
+    else if (d.a) txAct(d.a);
+  };
+  const hd = $('hd'); let dg = 0;
+  hd.onpointerdown = e => { dg = 1; hd.setPointerCapture(e.pointerId) };
+  hd.onpointermove = e => { if (dg) tb.style.cssText = `left:${e.clientX - 16}px;top:${e.clientY - 10}px` };
+  hd.onpointerup = e => { if (!dg) return; dg = 0; const W = innerWidth, H = innerHeight, d = { l: e.clientX, r: W - e.clientX, t: e.clientY, b: H - e.clientY }; dock(Object.keys(d).sort((a, b) => d[a] - d[b])[0]) };
+  new ResizeObserver(rsz).observe($('stage'));
+  $('pop').onclick = pc;
+  $('pop').oninput = e => { const t = pt_, k = e.target; if (k.type === 'range') { if (k.dataset.k === 'a') S.sh.a = +k.value; else if (t === 'tx') S.tx.fs = +k.value; else (t === 'er' ? S.er : t === 'sh' ? S.sh : S[t]).w = +k.value; txSync() } };
+}
+// Tahta alanının boyutu değişti: ekran tuvallerini yeniden boyutlandır.
+function rsz() {
+  rct = null; const r = $('stage').getBoundingClientRect(), d = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+  cw = r.width || 1; ch = r.height || 1;
+  const W = Math.max(1, Math.round(cw * d)), H = Math.max(1, Math.round(ch * d));
+  for (const c of [cv, inkC, uiC]) { c.width = W; c.height = H }
+  SCR.W = W; SCR.H = H; SCR.k = W / cw; uiSel = false; buildCursors(d);
+  if (REC.on) REC.k = REC.W / cw;
+  clamp(); viewDirty = 1;
+}
+function dock(s) {
+  side = s; const tb = $('tb'); tb.className = s === 'l' || s === 'r' ? 'v' : 'h';
+  tb.style.cssText = { l: 'left:8px;top:calc(var(--topH) + 8px)', r: 'right:8px;top:calc(var(--topH) + 8px)', t: 'top:calc(var(--topH) + 6px);left:50%;transform:translateX(-50%)', b: 'bottom:8px;left:50%;transform:translateX(-50%)' }[s];
+}
+function pop(t, b) {
+  const P = $('pop'); if (!t) { P.hidden = 1; pt_ = null; return } pt_ = t; if (b) pb = b; b = pb;
+  const sw = c => pal().map((x, i) => `<i data-c="${i}" style="background:${x}" class="${c === i ? 'on' : ''}"></i>`).join(''), rg = (a, m, v) => `<input type="range" min="${a}" max="${m}" step=".5" value="${v}">`; let h = '';
+  if (t === 'pen' || t === 'hl') h = `<label>Kalınlık${rg(1, t === 'hl' ? 40 : 10, S[t].w)}</label><div class="sw">${sw(S[t].c)}</div>` + (t === 'pen' ? `<div class="gr"><button data-pd="0" class="${S.pen.d ? '' : 'on'}">Düz</button><button data-pd="1" class="${S.pen.d ? 'on' : ''}">Kesikli</button></div><button data-rc="1" style="margin-top:4px;width:100%">Şekil tanıma: ${shapeRec ? 'Açık' : 'Kapalı'}</button>` : '');
+  else if (t === 'er') h = `<div class="gr"><button data-em="line" class="${S.er.m === 'line' ? 'on' : ''}">Çizgiyi sil</button><button data-em="part" class="${S.er.m === 'part' ? 'on' : ''}">Dokunduğunu sil</button></div><label>Silgi boyutu${rg(8, 80, S.er.w)}</label>`;
+  else if (t === 'tx') h = `<div class="gr">${[['sans', 'Sade'], ['serif', 'Tırnaklı'], ['mono', 'Daktilo'], ['hand', 'El yazısı']].map(([k, n]) => `<button data-f="${k}" class="${S.tx.fam === k ? 'on' : ''}">${n}</button>`).join('')}</div><label>Boyut${rg(12, 96, S.tx.fs)}</label><div class="gr">${[['l', 'Sola'], ['c', 'Ortala'], ['r', 'Sağa'], ['j', 'İki yana']].map(([k, n]) => `<button data-al="${k}" class="${S.tx.al === k ? 'on' : ''}">${n}</button>`).join('')}</div><div class="gr"><button data-tb="b" class="${S.tx.b ? 'on' : ''}">Kalın</button><button data-tb="i" class="${S.tx.i ? 'on' : ''}">İtalik</button></div><div class="sw">${sw(S.tx.c)}</div>`;
+  else if (t === 'sh') h = `<div class="gr">${SH.map(([k, n]) => `<button data-s="${k}" class="${S.sh.t === k ? 'on' : ''}">${n}</button>`).join('')}</div><label>Kalınlık${rg(1, 10, S.sh.w)}</label><label>Şeffaflık<input type="range" data-k="a" min=".1" max="1" step=".05" value="${S.sh.a}"></label><button data-fl="1" style="width:100%;margin:3px 0">Doldur: ${S.sh.f ? 'Açık' : 'Kapalı'}</button><div class="sw">${sw(S.sh.c)}</div>`;
+  else if (t === 'hand') h = `<div class="gr"><button data-m="pan" class="${mode === 'pan' ? 'on' : ''}">Kaydır</button><button data-m="laser" class="${mode === 'laser' ? 'on' : ''}">Lazer</button></div>`;
+  else if (t === 'bd') h = `<div class="gr">${TH.map(([k, n]) => `<button data-th="${k}" class="${theme === k ? 'on' : ''}">${n}</button>`).join('')}</div>`;
+  P.innerHTML = h; P.hidden = 0; const r = b.getBoundingClientRect(), w = P.offsetWidth, hh = P.offsetHeight;
+  let x = side === 'r' ? r.left - w - 8 : side === 'l' ? r.right + 8 : r.left, y = side === 'b' ? r.top - hh - 8 : side === 't' ? r.bottom + 8 : r.top;
+  P.style.left = Math.max(4, Math.min(x, innerWidth - w - 4)) + 'px'; P.style.top = Math.max(4, Math.min(y, innerHeight - hh - 4)) + 'px';
+}
+function pc(e) {
+  const d = e.target.dataset, t = pt_; let done = 0;
+  if (d.c !== undefined) { (t === 'sh' ? S.sh : S[t]).c = +d.c; done = 1 } if (d.s) { S.sh.t = d.s; done = 1 } if (d.m) { mode = d.m; done = 1 } if (d.th) { setTheme(d.th); done = 1 } if (d.f) { S.tx.fam = d.f; done = 1 } if (d.al) { S.tx.al = d.al; done = 1 } if (d.pd !== undefined) { S.pen.d = +d.pd; done = 1 } if (d.rc) { shapeRec = !shapeRec; done = 1 } if (d.fl) { S.sh.f = S.sh.f ? 0 : 1; done = 1 } if (d.tb) { S.tx[d.tb] = S.tx[d.tb] ? 0 : 1; done = 1 } if (d.em) { S.er.m = d.em; done = 1 }
+  if (done) { pop(t, pb); txSync() }
+}
+document.addEventListener('pointerdown', e => { if (pt_ && !e.target.closest('#pop,#tb,#cv')) pop(0) }, true);
+['pop', 'sb', 'fb', 'mh'].forEach(id => $(id).addEventListener('mousedown', e => { if (e.target.tagName !== 'INPUT') e.preventDefault() }));
+
+/* =====================================================================
+   Belgeler (PDF / resim) ve sayfa sayfa gösterim
+   ===================================================================== */
+const PJ = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.', padd = n => { while (pg.length < n) pg.push({ h: PH }) };
+function saveS() { Object.assign(sheets[cs], { o: objs, hist, redo, z, ox, oy, pg }) }
+function sheet(i) {
+  if (i === cs) return; txCommit(); saveS(); cs = i; const s = sheets[i];
+  objs = s.o || []; hist = s.hist || []; redo = s.redo || []; pg = s.pg;
+  if (s.z == null) { z = 1; ox = oy = 0 } else { z = s.z; ox = s.ox; oy = s.oy }
+  cancelCur(); dn = false; sel = []; pop(0); tabs();
+  if (s.one && s.z == null) pfit(); else view();
+  viewDirty = 1; uiDirty = 1;
+}
+function tabs() { $('tabs').innerHTML = sheets.map((s, i) => `<button data-i="${i}" class="${i === cs ? 'on' : ''}">${i ? i + '. Belge' : 'Tahta'}</button>` + (i && i === cs ? `<button data-x="${i}" title="Belgeyi kapat">✕</button>` : '')).join(''); pnav() }
+function addDoc(P, one) { sheets.push({ pg: P, one: one ? 1 : 0, pi: 0 }); sheet(sheets.length - 1) }
+function closeDoc(i) { if (cs === i) sheet(0); sheets.splice(i, 1); if (cs > i) cs--; tabs() }
+async function wk() {
+  const g = window.pdfjsLib; if (!g) throw 0; if (g.GlobalWorkerOptions.workerSrc) return; const u = PJ + 'worker.min.js';
+  try { g.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([await (await fetch(u)).text()], { type: 'text/javascript' })) } catch (_) { g.GlobalWorkerOptions.workerSrc = u }
+}
+async function addFiles(list) {
+  for (const f of list) {
+    try {
+      if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) {
+        await wk(); const d = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise, P = [];
+        for (let i = 1; i <= d.numPages; i++) {
+          note('PDF yükleniyor ' + i + '/' + d.numPages); const p = await d.getPage(i), v = p.getViewport({ scale: 1 }), vp = p.getViewport({ scale: 1200 / v.width }), c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
+          const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); await p.render({ canvasContext: x, viewport: vp }).promise;
+          const im = new Image(); im.src = c.toDataURL('image/jpeg', .88); try { await im.decode() } catch (_) { } P.push({ h: PW * vp.height / vp.width, img: im });
+        }
+        addDoc(P, P.length > 1 && await askMode());
+      } else if (f.type.startsWith('image/')) {
+        const a = new Image(); a.src = URL.createObjectURL(f); await a.decode(); const k = Math.min(1, 1400 / a.naturalWidth), c = document.createElement('canvas'); c.width = a.naturalWidth * k; c.height = a.naturalHeight * k;
+        const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(a, 0, 0, c.width, c.height);
+        const im = new Image(); im.src = c.toDataURL('image/jpeg', .88); try { await im.decode() } catch (_) { } addDoc([{ h: PW * c.height / c.width, img: im }]);
+      }
+    } catch (e) { note('Dosya açılamadı: ' + f.name + ' (internet bağlantısı gerekebilir)'); return }
+  }
+  note('');
+}
+function pnav() { const sh = sheets[cs] || {}, on = !!sh.one; $('pn').hidden = !on; if (on) $('pl').textContent = ((sh.pi || 0) + 1) + ' / ' + pg.length }
+function pfit() { const sh = sheets[cs]; if (!sh || !sh.one) return; const pi = sh.pi || 0, k = cw / (PW + 2 * M); z = Math.min(k, ch / (pg[pi].h + 2 * M)) / k; ox = 0; oy = ptop(pi); pnav(); view() }
+function pageGo(d) { const sh = sheets[cs]; if (!sh || !sh.one) return; const n = Math.max(0, Math.min(pg.length - 1, (sh.pi || 0) + d)); if (n === (sh.pi || 0)) return; sh.pi = n; sel = []; uiDirty = 1; pfit() }
+function askMode() { return new Promise(r => { const m = $('mm'); m.hidden = 0; m.onclick = e => { const v = e.target.dataset.v; if (v) { m.hidden = 1; r(v === 'one') } } }) }
+document.addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || te) return;
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redoF() : undo(); return }
+  if (mod && k === 'y') { e.preventDefault(); redoF(); return }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && tool === 'sel' && sel.length) { e.preventDefault(); delSel(); return }
+  const sh = sheets[cs]; if (!sh || !sh.one) return;
+  if (['ArrowRight', 'ArrowDown', 'PageDown'].includes(e.key)) { pageGo(1); e.preventDefault() } else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { pageGo(-1); e.preventDefault() }
+});
+
+/* =====================================================================
+   Metin aracı
+   ===================================================================== */
+function layout(o) {
+  mg.font = fnt(o); const W = Math.max(40, o.x2 - o.x1 - 8), L = [], E = [];
+  o.txt.split('\n').forEach(ln => { let c = ''; ln.split(' ').forEach(w => { const t = c ? c + ' ' + w : w; if (mg.measureText(t).width > W && c) { L.push(c); E.push(0); c = w } else c = t }); L.push(c); E.push(1) });
+  o.lines = L; o.ends = E; o.y2 = o.y1 + L.length * o.fs * 1.25 + 8; return o;
+}
+function teUpd() { teObj = te ? layout({ ...te._o, txt: te.value || ' ' }) : null; ovVer++ }
+function tePos() {
+  if (!te) return; const o = te._o, s = sc(), r = cv.getBoundingClientRect(), st = te.style;
+  st.left = r.left + (o.x1 - ox) * s + 'px'; st.top = r.top + (o.y1 - oy) * s + 'px'; st.width = (o.x2 - o.x1) * s + 'px'; st.fontSize = o.fs * s + 'px'; st.fontFamily = FAM[o.fam]; st.fontWeight = o.b ? 'bold' : 'normal'; st.fontStyle = o.i ? 'italic' : 'normal'; st.padding = 4 * s + 'px'; st.color = pal()[o.c]; st.textAlign = { l: 'left', c: 'center', r: 'right', j: 'justify' }[o.al || 'l']; posFB(r, o, s);
+}
+function txOpen(o, isNew) {
+  txCommit(); editId = isNew ? null : o.id; if (!isNew) { Object.assign(S.tx, { fam: o.fam, fs: o.fs, b: o.b, i: o.i, c: o.c, al: o.al || 'l' }); addBaseRegion(bbox(o)) }
+  te = document.createElement('textarea'); te.id = 'te'; te.rows = 1; te._o = { ...o }; te.value = o.txt || ''; document.body.appendChild(te); tePos();
+  te.oninput = () => { te.style.height = 'auto'; te.style.height = te.scrollHeight + 'px'; teUpd() }; te.onblur = () => txCommit(); te.onkeydown = e => { if (e.key === 'Escape') te.blur() }; te.focus(); te.oninput();
+}
+function txCommit() {
+  if (!te) return; const t = te, o = t._o, id = editId, v = t.value.replace(/\s+$/, ''), old = id && objs.find(x => x.id === id);
+  te = null; editId = null; t.remove(); $('fb').hidden = 1; $('mh').hidden = 1; teUpd();
+  if (old) addBaseRegion(bbox(old));
+  if (v) { const n = layout({ ...o, txt: v }); snap(); setObjs(id ? objs.map(x => x.id === id ? n : x) : [...objs, n]) } else if (id) { snap(); setObjs(objs.filter(x => x.id !== id)) }
+}
+function txUp() {
+  const p = tp, o = [...objs].reverse().find(o => o.t === 'text' && hit(o, p[0], p[1], 0)); if (o) return txOpen(o, 0);
+  const x1 = Math.min(p[0], PW - 160);
+  txOpen({ id: ++uid + '_' + Date.now(), t: 'text', c: S.tx.c, fam: S.tx.fam, fs: S.tx.fs, b: S.tx.b, i: S.tx.i, al: S.tx.al, txt: '', x1, y1: p[1], x2: Math.min(x1 + 320, PW - 4), y2: p[1] + S.tx.fs * 1.25 + 8, w: 1, lines: [] }, 1);
+}
+function txSync() { if (te) { Object.assign(te._o, { fam: S.tx.fam, fs: S.tx.fs, b: S.tx.b, i: S.tx.i, c: S.tx.c, al: S.tx.al }); tePos(); te.oninput() } }
+function txAct(a) {
+  snap(); setObjs(objs.map(o => {
+    if (!sel.includes(o.id) || o.t !== 'text') return o; const n = { ...o };
+    if (a === 'f+') n.fs = Math.min(120, Math.round(o.fs * 1.15)); if (a === 'f-') n.fs = Math.max(8, Math.round(o.fs / 1.15)); if (a === 'b') n.b = o.b ? 0 : 1; if (a === 'i') n.i = o.i ? 0 : 1; if (a === 'fam') n.fam = FK[(FK.indexOf(o.fam) + 1) % FK.length]; if (a === 'al') n.al = ALS[(ALS.indexOf(o.al || 'l') + 1) % 4]; return layout(n);
+  })); uiDirty = 1;
+}
+cv.ondblclick = e => { if (tool !== 'sel') return; const p = pt(e), o = [...objs].reverse().find(o => o.t === 'text' && hit(o, p[0], p[1], 0)); if (o) { sel = []; uiDirty = 1; txOpen(o, 0) } };
+$('fb').onclick = e => {
+  const t = e.target.closest('[data-b],[data-bc]'); if (!t || !te) return; const d = t.dataset, a = d.b;
+  if (d.bc !== undefined) S.tx.c = +d.bc; else if (a === 'f+') S.tx.fs = Math.min(120, Math.round(S.tx.fs * 1.15)); else if (a === 'f-') S.tx.fs = Math.max(8, Math.round(S.tx.fs / 1.15));
+  else if (a === 'b') S.tx.b = S.tx.b ? 0 : 1; else if (a === 'i') S.tx.i = S.tx.i ? 0 : 1; else if (a === 'fam') S.tx.fam = FK[(FK.indexOf(S.tx.fam) + 1) % FK.length]; else if (a === 'al') S.tx.al = ALS[(ALS.indexOf(S.tx.al) + 1) % 4];
+  txSync();
+};
+function posFB(r, o, s) {
+  const h = $('mh'), f = $('fb'), x = r.left + (o.x1 - ox) * s, y = r.top + (o.y1 - oy) * s; h.hidden = f.hidden = 0; h.style.left = Math.max(2, x - 32) + 'px'; h.style.top = y + 'px';
+  f.querySelectorAll('.sw i').forEach((i, k) => i.style.background = pal()[k]); let fy = y - 48; if (fy < r.top + 2) fy = y + (te ? te.offsetHeight : 30) + 6;
+  f.style.left = Math.max(4, Math.min(x, innerWidth - f.offsetWidth - 4)) + 'px'; f.style.top = Math.max(4, Math.min(fy, innerHeight - f.offsetHeight - 4)) + 'px';
+}
+(() => {
+  const h = $('mh'); let g = 0, sx, sy, x0, y0;
+  h.onpointerdown = e => { if (!te) return; g = 1; h.setPointerCapture(e.pointerId); sx = e.clientX; sy = e.clientY; x0 = te._o.x1; y0 = te._o.y1; e.preventDefault() };
+  h.onpointermove = e => { if (!g || !te) return; const s = sc(), o = te._o, w = o.x2 - o.x1, nx = Math.max(0, Math.min(PW - w, x0 + (e.clientX - sx) / s)); o.x1 = nx; o.x2 = nx + w; o.y1 = y0 + (e.clientY - sy) / s; tePos(); teUpd() };
+  h.onpointerup = () => g = 0; h.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+})();
+
+/* =====================================================================
+   Şekil düzeltme ve tanıma
+   ===================================================================== */
+function shp(p, F) {
+  let w = p[0] - start[0], h = p[1] - start[1]; const a = Math.abs(w), b = Math.abs(h), m = Math.max(a, b), t = cur.t, sg = v => v < 0 ? -1 : 1;
+  if (t === 'tri') { if (F === 1 || (F === 2 && Math.abs(b - a * .866) < .2 * a)) h = sg(h) * a * .866; else if (Math.abs(a - b) < .08 * m) { w = sg(w) * m; h = sg(h) * m } }
+  else if (t === 'rect' || t === 'ell' || t === 'rtri') { if (F === 1 || Math.abs(a - b) < (F === 2 ? .25 : .08) * m) { w = sg(w) * m; h = sg(h) * m } }
+  else { const g = Math.hypot(w, h), an = Math.atan2(h, w), q = Math.round(an / (Math.PI / 4)) * (Math.PI / 4); if (F === 1 || (F === 2 && Math.abs(an - q) < .14)) { w = g * Math.cos(q); h = g * Math.sin(q) } else if (b < .06 * a) h = 0 }
+  cur.x2 = start[0] + w; cur.y2 = start[1] + h;
+}
+function dp(a, e) {
+  if (a.length < 3) return a; const f = a[0], l = a[a.length - 1], dx = l[0] - f[0], dy = l[1] - f[1], L = Math.hypot(dx, dy) || 1; let mi = 0, md = 0;
+  for (let i = 1; i < a.length - 1; i++) { const d = Math.abs((a[i][0] - f[0]) * dy - (a[i][1] - f[1]) * dx) / L; if (d > md) { md = d; mi = i } }
+  return md > e ? [...dp(a.slice(0, mi + 1), e).slice(0, -1), ...dp(a.slice(mi), e)] : [f, l];
+}
+function crn(p, e) {
+  const f = p[0]; let fi = 0, fd = 0; p.forEach((q, i) => { const d = Math.hypot(q[0] - f[0], q[1] - f[1]); if (d > fd) { fd = d; fi = i } });
+  const c = [...dp(p.slice(0, fi + 1), e).slice(0, -1), ...dp(p.slice(fi), e)]; c.pop();
+  if (c.length > 3) { const a = c[c.length - 1], b = c[0], g = c[1], ux = b[0] - a[0], uy = b[1] - a[1], vx = g[0] - b[0], vy = g[1] - b[1]; if ((ux * vx + uy * vy) / (Math.hypot(ux, uy) * Math.hypot(vx, vy) || 1) > .88) c.shift() }
+  for (let i = 0; i < c.length && c.length > 3;) { const a = c[(i + c.length - 1) % c.length], b = c[i], g = c[(i + 1) % c.length], ux = b[0] - a[0], uy = b[1] - a[1], vx = g[0] - b[0], vy = g[1] - b[1]; if ((ux * vx + uy * vy) / (Math.hypot(ux, uy) * Math.hypot(vx, vy) || 1) > .9) c.splice(i, 1); else i++ }
+  return c;
+}
+function straightF(p, L) {
+  const n = p.length, cum = [0]; for (let i = 1; i < n; i++)cum.push(cum[i - 1] + Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1])); const W = .1 * L; let ok = 0, tot = 0;
+  for (let i = 0; i < n; i++) {
+    let j = i; while (j < n - 1 && cum[j] - cum[i] < W) j++; if (cum[j] - cum[i] < W * .95) break; tot++; const a = p[i], b = p[j], dx = b[0] - a[0], dy = b[1] - a[1], chd = Math.hypot(dx, dy) || 1; let md = 0;
+    for (let k = i; k <= j; k++)md = Math.max(md, Math.abs((p[k][0] - a[0]) * dy - (p[k][1] - a[1]) * dx) / chd); if (md / chd < .05) ok++;
+  }
+  return tot ? ok / tot : 0;
+}
+function recog(p) {
+  const n = p.length; if (n < 6) return null; let L = 0; for (let i = 1; i < n; i++)L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
+  let x1 = 1e9, y1 = 1e9, x2 = -1e9, y2 = -1e9; for (const q of p) { if (q[0] < x1) x1 = q[0]; if (q[0] > x2) x2 = q[0]; if (q[1] < y1) y1 = q[1]; if (q[1] > y2) y2 = q[1] }
+  const D = Math.hypot(x2 - x1, y2 - y1); if (L < 30 || D < 20) return null;
+  const f = p[0], l = p[n - 1], chd = Math.hypot(l[0] - f[0], l[1] - f[1]);
+  if (chd > .85 * L) {
+    const dx = l[0] - f[0], dy = l[1] - f[1]; let md = 0; p.forEach(q => { md = Math.max(md, Math.abs((q[0] - f[0]) * dy - (q[1] - f[1]) * dx) / chd) });
+    if (md >= .08 * chd) return null; let X = l[0], Y = l[1]; const an = Math.atan2(dy, dx), qa = Math.round(an / (Math.PI / 4)) * (Math.PI / 4);
+    if (Math.abs(an - qa) < .12) { X = f[0] + chd * Math.cos(qa); Y = f[1] + chd * Math.sin(qa) } return { t: 'line', x1: f[0], y1: f[1], x2: X, y2: Y };
+  }
+  if (chd > .2 * L) return null;
+  const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, rx = (x2 - x1) / 2, ry = (y2 - y1) / 2; let dv = 9;
+  if (rx > 8 && ry > 8) { dv = 0; p.forEach(q => { dv += Math.abs(Math.hypot((q[0] - cx) / rx, (q[1] - cy) / ry) - 1) }); dv /= n }
+  const ell = () => { const e = { t: 'ell', x1, y1, x2, y2 }; if (Math.abs(rx - ry) < .15 * Math.max(rx, ry)) { const r = (rx + ry) / 2; e.x1 = cx - r; e.x2 = cx + r; e.y1 = cy - r; e.y2 = cy + r } return e };
+  const SF = straightF(p, L); if (dv < .09 && SF < .2) return ell();
+  const c = crn(p, .07 * D);
+  if (c.length === 3) return { t: 'poly', p: [...c, c[0]] };
+  if (c.length === 4) { const ok = [0, 1, 2, 3].every(i => { const a = c[i], b = c[(i + 1) % 4], m = Math.abs(Math.atan2(b[1] - a[1], b[0] - a[0])) % (Math.PI / 2); return Math.min(m, Math.PI / 2 - m) < .2 }); return ok ? { t: 'rect', x1, y1, x2, y2 } : { t: 'poly', p: [...c, c[0]] } }
+  if (SF >= .2) { const c2 = crn(p, .05 * D); if (c2.length >= 5 && c2.length <= 8) return { t: 'poly', p: [...c2, c2[0]] } }
+  return dv < .16 ? ell() : null;
+}
+// Kalemi bir süre sabit tutunca: çizgiyi şekle çevir (kalem) ya da şekli düzelt (şekil aracı).
+function holdT(e) {
+  if (!cur || recDone) return; if (ht && ha && Math.hypot(e.clientX - ha[0], e.clientY - ha[1]) < 6) return; clearTimeout(ht); ha = [e.clientX, e.clientY];
+  if (cur.p) { if (cur.t === 'pen' && shapeRec && cur.p.length > 5) ht = setTimeout(() => { ht = 0; if (!cur || !cur.p) return; const r = recog(cur.p); if (r) { cur = { id: cur.id, c: cur.c, w: cur.w, ds: cur.ds, ...r, t: r.t === 'poly' ? 'pen' : r.t, sh: r.t === 'poly' ? 1 : 0 }; recDone = 1; curDirty = 1 } }, 1000) }
+  else if (e.pointerType !== 'mouse') { lp = pt(e); ht = setTimeout(() => { ht = 0; if (!cur || cur.p) return; perfect = 1; shp(lp, 2); curDirty = 1 }, 700) }
+}
+
+/* =====================================================================
+   Seçim aracı
+   ===================================================================== */
+const cors = b => [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]], cl5 = v => Math.abs(v) < .05 ? .05 : v;
+function sbb() { let r = null; objs.forEach(o => { if (!sel.includes(o.id)) return; const q = ob(o); r = r ? [Math.min(r[0], q[0]), Math.min(r[1], q[1]), Math.max(r[2], q[2]), Math.max(r[3], q[3])] : q }); return r && [r[0] - 4, r[1] - 4, r[2] + 4, r[3] + 4] }
+function mapO(o, f) {
+  const n = { ...o };
+  if (o.t === 'text') { const a = f(o.x1, o.y1), c = f(o.x2, o.y1), k = Math.abs(c[0] - a[0]) / (o.x2 - o.x1 || 1); n.x1 = Math.min(a[0], c[0]); n.y1 = a[1]; n.x2 = Math.max(a[0], c[0]); if (Math.abs(k - 1) > 1e-6) n.fs = Math.max(6, o.fs * k); return layout(n) }
+  if (o.p) n.p = o.p.map(q => f(q[0], q[1])); else { [n.x1, n.y1] = f(o.x1, o.y1);[n.x2, n.y2] = f(o.x2, o.y2) } return n;
+}
+function snapSel() { snap(); so = {}; objs.forEach(o => { if (sel.includes(o.id)) so[o.id] = o }) }
+function delSel() { snap(); setObjs(objs.filter(o => !sel.includes(o.id))); sel = []; uiDirty = 1 }
+function selDown(p) {
+  const s = sc(), b = sel.length && sbb(); sa = p;
+  if (b) {
+    const hs = cors(b); for (let k = 0; k < 4; k++)if (Math.hypot(p[0] - hs[k][0], p[1] - hs[k][1]) < 18 / s) { sm = 's'; sh_ = hs[k]; sb_ = hs[(k + 2) % 4]; snapSel(); return }
+    if (p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3]) { sm = 'm'; snapSel(); return }
+  }
+  sm = 'b'; sel = []; selR = [p[0], p[1], p[0], p[1]]; uiDirty = 1;
+}
+function selMove(p, e) {
+  if (sm === 'b') selR = [sa[0], sa[1], p[0], p[1]];
+  else if (sm) {
+    let f; if (sm === 'm') { const dx = p[0] - sa[0], dy = p[1] - sa[1]; f = (x, y) => [x + dx, y + dy] }
+    else { let sx = cl5((p[0] - sb_[0]) / (sh_[0] - sb_[0]) || 1), sy = cl5((p[1] - sb_[1]) / (sh_[1] - sb_[1]) || 1); if (e.shiftKey) sy = sx; f = (x, y) => [sb_[0] + (x - sb_[0]) * sx, sb_[1] + (y - sb_[1]) * sy] }
+    setObjs(objs.map(o => so[o.id] ? mapO(so[o.id], f) : o));
+  }
+  uiDirty = 1;
+}
+function selUp() {
+  if (sm === 'b') {
+    const r = selR, w = Math.abs(r[2] - r[0]), h = Math.abs(r[3] - r[1]), s = sc();
+    if (w + h < 8 / s) { const o = [...objs].reverse().find(o => hit(o, r[0], r[1], 6 / s)); sel = o ? [o.id] : [] }
+    else { const x1 = Math.min(r[0], r[2]), x2 = Math.max(r[0], r[2]), y1 = Math.min(r[1], r[3]), y2 = Math.max(r[1], r[3]); sel = objs.filter(o => { const q = ob(o); return q[0] <= x2 && q[2] >= x1 && q[1] <= y2 && q[3] >= y1 }).map(o => o.id) }
+    selR = null;
+  }
+  sm = 0; uiDirty = 1;
+}
+function selDraw(g, s) {
+  const b = sel.length && sbb();
+  g.save(); g.strokeStyle = g.fillStyle = '#e8d9a0'; g.lineWidth = 1.5 / s;
+  if (b) { g.setLineDash([6 / s, 4 / s]); g.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); g.setLineDash([]); const h = 6 / s; for (const q of cors(b)) g.fillRect(q[0] - h, q[1] - h, 2 * h, 2 * h) }
+  if (selR) { g.setLineDash([5 / s, 4 / s]); g.strokeRect(selR[0], selR[1], selR[2] - selR[0], selR[3] - selR[1]) } g.restore();
+  const e = $('sb'); if (!b) { e.hidden = 1; return } e.hidden = 0; $('tx2').hidden = !objs.some(o => sel.includes(o.id) && o.t === 'text'); e.querySelectorAll('.sw i').forEach((i, k) => i.style.background = pal()[k]);
+  const r = cv.getBoundingClientRect(); let x = r.left + (b[0] - ox) * s, y = r.top + (b[1] - oy) * s - 48; if (y < r.top + 4) y = r.top + (b[3] - oy) * s + 8;
+  e.style.left = Math.max(4, Math.min(x, innerWidth - e.offsetWidth - 4)) + 'px'; e.style.top = Math.max(r.top + 4, Math.min(y, innerHeight - 54)) + 'px';
+}
+
+/* =====================================================================
+   VİDEO STÜDYOSU — düzen, kamera, mikrofon, kayıt
+   ===================================================================== */
+let RW = 1920, RH = 1080, PX = 360, PWd = 1524, LC = 280;
+const LW = 1920, LH = 1080, PY = 36, PHt = 1008, PB = 6, FONT = 'Poppins,"Segoe UI",Arial,sans-serif', ASP = { '4:3': .75, '16:9': .5625, '1:1': 1, '3:4': 1.3333 };
+const F = { course: 'Ders adı', topic: 'Konu', day: 1, step: 1, theme: '#0b4f5c', frame: '#e0a63a', camShow: 1, camAsp: '4:3', intro: 0, res: '720', col: 'dar', fm: 'auto', logoData: null, logoImg: null };
+const RC = { on: 0, paused: 0, busy: 0, t0: 0, acc: 0, marks: [], mr: null, mt: '', blob: null, ext: 'webm', stream: null, saved: 1 };
+const MTS = { mp4: ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'], vp8: ['video/webm;codecs=vp8,opus', 'video/webm'], vp9: ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'] };
+const camV = $('camV'), recCv = document.createElement('canvas'), rctx = recCv.getContext('2d', { alpha: false });
+const ovC = document.createElement('canvas'), introC = document.createElement('canvas');
+let camS = null, micS = null, an = null, aud = null, wl = null, castOn = 0, introUntil = 0, chunks = [], sdirty = 1;
+const mix = (a, b, t) => { const q = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = q(a), B = q(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('') };
+function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath() }
+function wrapT(c, t, w) { const o = []; String(t).split('\n').forEach(ln => { let cur = ''; ln.split(' ').forEach(wd => { const x = cur ? cur + ' ' + wd : wd; if (c.measureText(x).width > w && cur) { o.push(cur); cur = wd } else cur = x }); o.push(cur) }); return o }
+const fmt = t => { t = Math.floor(t); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60, p = n => String(n).padStart(2, '0'); return h ? h + ':' + p(m) + ':' + p(s) : m + ':' + p(s) };
+const elapsed = () => RC.paused ? RC.acc : RC.acc + (performance.now() - RC.t0);
+
+// Sabit arka plan (degrade, panel çerçevesi, sol sütun yazıları). k: ölçek (1 = 1920x1080).
+function drawStatic(c, k) {
+  const T = F.theme, W = LW, H = LH, u = LC / 340;
+  c.save(); c.setTransform(k, 0, 0, k, 0, 0);
+  const gr = c.createLinearGradient(0, 0, W, H); gr.addColorStop(0, mix(T, '#000000', .45)); gr.addColorStop(.55, T); gr.addColorStop(1, mix(T, '#000000', .55)); c.fillStyle = gr; c.fillRect(0, 0, W, H);
+  c.save(); c.shadowColor = mix(T, '#ffffff', .5); c.shadowBlur = 24 * k; c.lineWidth = PB; c.strokeStyle = mix(T, '#ffffff', .45); rr(c, PX, PY, PWd, PHt, 28); c.fillStyle = '#101312'; c.fill(); c.stroke(); c.restore();
+  c.textAlign = 'center'; c.textBaseline = 'top'; c.fillStyle = '#fff'; const cx = 40 + LC / 2; let y = 40;
+  const im = F.logoImg; if (im && im.naturalWidth) { const bh = 150 * u, q = Math.min(LC / im.naturalWidth, bh / im.naturalHeight), w = im.naturalWidth * q, h = im.naturalHeight * q; c.drawImage(im, cx - w / 2, y + (bh - h) / 2, w, h) } y += Math.round(170 * u);
+  const ln = () => { c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 2; c.beginPath(); c.moveTo(52, y); c.lineTo(28 + LC, y); c.stroke(); y += 16 };
+  const f1 = Math.round(38 * u), f2 = Math.round(30 * u), f3 = Math.round(30 * u);
+  ln(); c.font = '700 ' + f1 + 'px ' + FONT; wrapT(c, F.course, LC - 12).forEach(t => { c.fillText(t, cx, y); y += Math.round(f1 * 1.2) }); y += 8; ln();
+  c.font = '600 ' + f2 + 'px ' + FONT; wrapT(c, F.topic, LC - 12).forEach(t => { c.fillText(t, cx, y); y += Math.round(f2 * 1.25) }); y += 8; ln(); y += 10;
+  c.font = '500 ' + f3 + 'px ' + FONT; c.textAlign = 'left'; c.strokeStyle = '#fff'; c.lineWidth = 3; c.lineJoin = 'round'; c.lineCap = 'round';
+  rr(c, 52, y + 6, 32, 30, 6); c.stroke(); c.beginPath(); c.moveTo(52, y + 15); c.lineTo(84, y + 15); c.moveTo(60, y + 1); c.lineTo(60, y + 10); c.moveTo(76, y + 1); c.lineTo(76, y + 10); c.stroke(); c.fillText(F.day + '. Gün', 100, y); y += 56;
+  c.beginPath(); c.moveTo(54, y + 34); c.lineTo(82, y + 8); c.moveTo(66, y + 8); c.lineTo(82, y + 8); c.lineTo(82, y + 26); c.stroke(); c.fillText(F.step + '. Adım', 100, y);
+  c.restore();
+}
+function refreshLay() { if (!sdirty) return; sdirty = 0; drawStatic($('lay').getContext('2d'), 1); if (REC.on) { buildRecStatic(); recFull = 1 } }
+function drawIntro(c, k) {
+  const W = RW, H = RH, g = c.createLinearGradient(0, 0, W, H); g.addColorStop(0, mix(F.theme, '#000000', .5)); g.addColorStop(1, F.theme); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; const im = F.logoImg; if (im && im.naturalWidth) { const q = Math.min(300 * k / im.naturalWidth, 140 * k / im.naturalHeight); c.drawImage(im, W / 2 - im.naturalWidth * q / 2, H * .12, im.naturalWidth * q, im.naturalHeight * q) }
+  c.font = `700 ${84 * k}px ${FONT}`; wrapT(c, F.course, W * .8).forEach((t, i) => c.fillText(t, W / 2, H * .38 + i * 100 * k)); c.font = `600 ${52 * k}px ${FONT}`; c.fillText(F.topic, W / 2, H * .6); c.font = `500 ${40 * k}px ${FONT}`; c.fillText(F.day + '. Gün · ' + F.step + '. Adım', W / 2, H * .72);
+}
+function place() {
+  const st = $('studio'), k = st.clientWidth / LW, e = $('stage').style; e.left = (PX + PB) / LW * 100 + '%'; e.top = (PY + PB) / LH * 100 + '%'; e.width = (PWd - 2 * PB) / LW * 100 + '%'; e.height = (PHt - 2 * PB) / LH * 100 + '%'; e.borderRadius = 22 * k + 'px';
+  const v = camV.style, h = Math.round(LC * ASP[F.camAsp]); v.display = F.camShow ? 'block' : 'none'; v.left = 40 / LW * 100 + '%'; v.top = (LH - 40 - h) / LH * 100 + '%'; v.width = LC / LW * 100 + '%'; v.height = h / LH * 100 + '%'; v.borderRadius = 22 * k + 'px'; v.border = (6 * k) + 'px solid ' + F.frame;
+  if (innerHeight > innerWidth * 1.1 && !window._ph) { window._ph = 1; toast('Daha iyi görünüm için cihazı yatay tut') }
+}
+function toast(t) { const e = $('toast'); e.textContent = t; e.hidden = 0; clearTimeout(e._t); e._t = setTimeout(() => e.hidden = 1, 9000) }
+
+/* ---- Kayıt görüntüsünü birleştirme ----
+   Kayıt tuvali (RW x RH) bir kez tamamen çizilir. Sonra her karede sadece değişen yerler
+   (yeni mürekkep, imleç/lazer, kamera) birebir piksel kopyasıyla güncellenir.
+   Yuvarlak köşeler ve çerçeveler, "delikli" bir üst katmanla (ovC) kapatılır; kırpma yok. */
+let RG = null, recDirty = null, recFull = 1, ovPrev = null, ovSeen = -1, camNew = 1, introShown = 0, compT = 0, compN = 0;
+const compActive = () => REC.on && (castOn || (RC.on && !RC.paused));
+function recGeom() {
+  const k = RW / LW, h = Math.round(LC * ASP[F.camAsp]);
+  const g = { k, bx: Math.round((PX + PB) * k), by: Math.round((PY + PB) * k), bw: Math.round((PWd - 2 * PB) * k), bh: Math.round((PHt - 2 * PB) * k), rad: 22 * k, cam: null };
+  if (F.camShow) { const c = { x: 40 * k, y: (LH - 40 - h) * k, w: LC * k, h: h * k }, p = 3 * k + 2; c.box = [Math.floor(c.x - p), Math.floor(c.y - p), Math.ceil(c.x + c.w + p), Math.ceil(c.y + c.h + p)]; g.cam = c }
+  return g;
+}
+function buildRecStatic() {
+  const G = RG = recGeom(); ovC.width = RW; ovC.height = RH; const o = ovC.getContext('2d');
+  o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, RW, RH); drawStatic(o, G.k);
+  o.globalCompositeOperation = 'destination-out'; rr(o, G.bx, G.by, G.bw, G.bh, G.rad); o.fill();
+  if (G.cam) { rr(o, G.cam.x, G.cam.y, G.cam.w, G.cam.h, G.rad); o.fill() }
+  o.globalCompositeOperation = 'source-over';
+  if (G.cam) { o.lineWidth = 6 * G.k; o.strokeStyle = F.frame; rr(o, G.cam.x, G.cam.y, G.cam.w, G.cam.h, G.rad); o.stroke() }
+}
+function recActivate() {
+  buildRecStatic(); const G = RG;
+  if (recCv.width !== RW || recCv.height !== RH) { recCv.width = RW; recCv.height = RH }
+  recBase.width = recInk.width = G.bw; recBase.height = recInk.height = G.bh; REC.W = G.bw; REC.H = G.bh; REC.k = G.bw / cw; REC.on = true;
+  paintBase(REC, null); REC.i.setTransform(1, 0, 0, 1, 0, 0); REC.i.clearRect(0, 0, REC.W, REC.H);
+  if (cur && ink) { ink.full = true; curDirty = 1 }
+  recFull = 1; ovSeen = -1;
+}
+function recDeactivate() { if (RC.on || castOn) return; REC.on = false; recBase.width = recBase.height = recInk.width = recInk.height = 1; recDirty = null }
+function markDirty(w) { if (!REC.on || !w) return; const m = REC.k * sc(); recDirty = uni(recDirty, [(w[0] - ox) * m, (w[1] - oy) * m, (w[2] - ox) * m, (w[3] - oy) * m]) }
+function markRecFull() { if (REC.on) recDirty = [0, 0, REC.W, REC.H] }
+function ovBox() {
+  let b = null; const m = REC.k * sc(), K = REC.k, P = (x, y) => [(x - ox) * m, (y - oy) * m];
+  if (teObj) { const p = teObj.fs * .35 + 6, a = P(teObj.x1 - p, teObj.y1 - p), q = P(teObj.x2 + p, teObj.y2 + p); b = uni(b, [a[0], a[1], q[0], q[1]]) }
+  if (laser) { const q = P(laser.x, laser.y); b = uni(b, lasBox(q[0], q[1], K)) }
+  return b;
+}
+function recOverlays(c) {
+  const G = RG, s = sc(), m = REC.k * s; c.save(); c.beginPath(); c.rect(G.bx, G.by, G.bw, G.bh); c.clip();
+  c.setTransform(m, 0, 0, m, G.bx - ox * m, G.by - oy * m);
+  if (teObj) drawText(c, teObj); if (laser) drawLaser(c, laser, s);
+  c.restore();
+}
+function drawCamRec(c) {
+  const C = RG.cam, v = camV, x = Math.floor(C.x) - 1, y = Math.floor(C.y) - 1, w = Math.ceil(C.w) + 2, h = Math.ceil(C.h) + 2;
+  if (v.videoWidth && v.readyState >= 2) { const vr = v.videoWidth / v.videoHeight, fr = w / h; let sx = 0, sy = 0, sw = v.videoWidth, sh = v.videoHeight; if (vr > fr) { sw = sh * fr; sx = (v.videoWidth - sw) / 2 } else { sh = sw / fr; sy = (v.videoHeight - sh) / 2 } c.drawImage(v, sx, sy, sw, sh, x, y, w, h) }
+  else { c.fillStyle = '#0a0c0b'; c.fillRect(x, y, w, h) }
+}
+function compose(force) {
+  const t0 = performance.now(), c = rctx, G = RG;
+  if (introUntil && t0 < introUntil) { c.drawImage(introC, 0, 0); introShown = 1; return }
+  if (introShown) { introShown = 0; introUntil = 0; force = true }
+  const ob2 = ovBox();
+  if (force || recFull) {
+    recFull = 0; recDirty = null; ovSeen = ovVer; ovPrev = ob2;
+    c.drawImage(recBase, G.bx, G.by); c.globalAlpha = inkAlpha(); c.drawImage(recInk, G.bx, G.by); c.globalAlpha = 1; if (ob2) recOverlays(c);
+    if (G.cam) drawCamRec(c);
+    c.drawImage(ovC, 0, 0); camNew = 0;
+  } else {
+    if (ovVer !== ovSeen) { ovSeen = ovVer; recDirty = uni(recDirty, uni(ovPrev, ob2)); ovPrev = ob2 }
+    if (recDirty) {
+      let r = recDirty; recDirty = null; if (inter(r, ob2)) r = uni(r, ob2);
+      r = [Math.max(0, Math.floor(r[0]) - 1), Math.max(0, Math.floor(r[1]) - 1), Math.min(G.bw, Math.ceil(r[2]) + 1), Math.min(G.bh, Math.ceil(r[3]) + 1)];
+      const w = r[2] - r[0], h = r[3] - r[1];
+      if (w > 0 && h > 0) {
+        const X = G.bx + r[0], Y = G.by + r[1];
+        c.drawImage(recBase, r[0], r[1], w, h, X, Y, w, h); c.globalAlpha = inkAlpha(); c.drawImage(recInk, r[0], r[1], w, h, X, Y, w, h); c.globalAlpha = 1;
+        if (inter(r, ob2)) recOverlays(c);
+        const q = Math.ceil(G.rad) + 2; if ((r[0] < q || r[2] > G.bw - q) && (r[1] < q || r[3] > G.bh - q)) c.drawImage(ovC, X, Y, w, h, X, Y, w, h);
+      }
+    }
+    if (G.cam && camNew) { camNew = 0; drawCamRec(c); const b = G.cam.box; c.drawImage(ovC, b[0], b[1], b[2] - b[0], b[3] - b[1], b[0], b[1], b[2] - b[0], b[3] - b[1]) }
+  }
+  if (RC.on) { compT += performance.now() - t0; compN++ }
+}
+// Kamera yeni kare verdiğinde işaretle (kamera alanı sadece o zaman yeniden çizilir).
+(function camWatch() { if (camV.requestVideoFrameCallback) { const f = () => { camNew = 1; camV.requestVideoFrameCallback(f) }; camV.requestVideoFrameCallback(f) } else setInterval(() => camNew = 1, 33) })();
+// Sekme arka plandayken requestAnimationFrame durur; kayıt yine de kare alsın.
+setInterval(() => { if (document.hidden && compActive()) compose(false) }, 100);
+
+function setRes() { RW = F.res === '720' ? 1280 : 1920; RH = F.res === '720' ? 720 : 1080; if (REC.on) recActivate() }
+function setLogo() { if (!F.logoData) return; const i = new Image(); i.onload = () => { F.logoImg = i; sdirty = 1 }; i.src = F.logoData }
+function saveF() { sdirty = 1; place(); if (REC.on) { recActivate() } try { const o = { ...F }; delete o.logoImg; delete o.logoData; localStorage.setItem('studyoF', JSON.stringify(o)) } catch (_) { } }
+function bindF() {
+  [['f_c', 'course'], ['f_t', 'topic'], ['f_d', 'day', 1], ['f_s', 'step', 1]].forEach(([id, k, n]) => { const e = $(id); e.value = F[k]; e.oninput = () => { F[k] = n ? Math.max(1, +e.value || 1) : e.value; saveF() } });
+  $('f_th').value = F.theme; $('f_th').oninput = e => { F.theme = e.target.value; saveF() }; $('f_fr').value = F.frame; $('f_fr').oninput = e => { F.frame = e.target.value; saveF() };
+  $('f_cs').checked = !!F.camShow; $('f_cs').onchange = e => { F.camShow = e.target.checked ? 1 : 0; saveF() }; $('f_ca').value = F.camAsp; $('f_ca').onchange = e => { F.camAsp = e.target.value; saveF() };
+  $('f_in').checked = !!F.intro; $('f_in').onchange = e => { F.intro = e.target.checked ? 1 : 0; saveF() };
+  $('f_r').value = F.res; $('f_r').onchange = e => { if (RC.on) { e.target.value = F.res; return } F.res = e.target.value; setRes(); saveF() };
+  $('f_l').onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { F.logoData = r.result; setLogo(); try { localStorage.setItem('studyoLogo', r.result) } catch (_) { } }; r.readAsDataURL(f) };
+  $('f_col').value = F.col; $('f_col').onchange = e => { F.col = e.target.value; setCol(); saveF() }; $('f_fm').value = F.fm; $('f_fm').onchange = e => { F.fm = e.target.value; showFmt(); saveF() };
+  $('f_cam').onchange = () => startCam(); $('f_mic').onchange = () => { if (RC.on) { note('Kayıt sırasında mikrofon değiştirilemez'); return } startMic() };
+}
+async function startCam() {
+  try {
+    camS && camS.getTracks().forEach(t => t.stop()); const id = $('f_cam').value;
+    // Kamera kayıtta küçük bir köşede görünüyor; yüksek çözünürlük gereksiz yük getirir.
+    camS = await navigator.mediaDevices.getUserMedia({ video: id ? { deviceId: { exact: id }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } } : { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } } });
+    camV.srcObject = camS; camV.play().catch(() => { });
+  } catch (e) { camS = null; note('Kamera açılamadı: ' + e.name) }
+}
+async function startMic() {
+  try {
+    micS && micS.getTracks().forEach(t => t.stop()); const id = $('f_mic').value;
+    micS = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: id ? { exact: id } : undefined, echoCancellation: true, noiseSuppression: true } });
+    aud = aud || new (window.AudioContext || window.webkitAudioContext)(); an = aud.createAnalyser(); an.fftSize = 512; aud.createMediaStreamSource(micS).connect(an);
+  } catch (e) { micS = null; note('Mikrofon açılamadı: ' + e.name) }
+}
+const esc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+async function devList() {
+  const d = await navigator.mediaDevices.enumerateDevices(), f = (el, k, cur) => { el.innerHTML = d.filter(x => x.kind === k).map((x, i) => `<option value="${esc(x.deviceId)}">${esc(x.label || k + ' ' + (i + 1))}</option>`).join(''); if (cur) el.value = cur };
+  const c = camS && camS.getVideoTracks()[0], m = micS && micS.getAudioTracks()[0]; f($('f_cam'), 'videoinput', c && c.getSettings().deviceId); f($('f_mic'), 'audioinput', m && m.getSettings().deviceId);
+}
+const lvBuf = new Uint8Array(512);
+function meter() {
+  if ($('sp').hidden || !an) return; const c = $('lv').getContext('2d'); c.clearRect(0, 0, 260, 10); an.getByteTimeDomainData(lvBuf); let m = 0; for (const v of lvBuf) { const d = Math.abs(v - 128); if (d > m) m = d } const p = Math.min(1, m / 90);
+  c.fillStyle = p > .9 ? '#e05252' : p > .6 ? '#e8d9a0' : '#7fd1a0'; c.fillRect(0, 0, 260 * p, 10);
+}
+function pickMT() { const L = F.fm === 'auto' ? [...MTS.mp4, ...MTS.vp8] : (MTS[F.fm] || []); return L.find(t => MediaRecorder.isTypeSupported(t)) || [...MTS.mp4, ...MTS.vp8].find(t => MediaRecorder.isTypeSupported(t)) || '' }
+function showFmt() { const t = typeof MediaRecorder !== 'undefined' ? pickMT() : ''; $('fmt').textContent = 'Kullanılacak biçim: ' + (t.includes('mp4') ? 'MP4 (H.264)' : t.includes('vp9') ? 'WebM (VP9)' : t ? 'WebM (VP8)' : 'desteklenmiyor') }
+function setCol() { LC = F.col === 'orta' ? 340 : 280; PX = LC + 80; PWd = LW - PX - 36; sdirty = 1; place(); if (REC.on) recActivate() }
+function cd(n) { const e = $('cd'); e.hidden = !n; e.textContent = n || '' }
+
+async function recStart() {
+  if (RC.on || RC.busy) return; if (typeof MediaRecorder === 'undefined') return note('Bu tarayıcı kaydı desteklemiyor');
+  if (RC.blob && !RC.saved && !confirm('Son kayıt henüz indirilmedi. Yeni kayıt başlatılırsa silinecek. Devam edilsin mi?')) return;
+  RC.busy = 1; $('brs').disabled = 1; txCommit();
+  for (let i = 3; i > 0; i--) { cd(i); await sleep(1000) } cd(0);
+  RC.mt = pickMT(); RC.on = 1; RC.paused = 0; RC.marks = []; RC.acc = 0; RC.blob = null; chunks = [];
+  recActivate();
+  if (F.intro) { introC.width = RW; introC.height = RH; drawIntro(introC.getContext('2d'), RW / LW); introUntil = performance.now() + 3000 } else introUntil = 0;
+  const vs = recCv.captureStream(30), tr = [...vs.getVideoTracks()]; if (micS) micS.getAudioTracks().forEach(t => tr.push(t.clone()));
+  RC.stream = new MediaStream(tr);
+  const opt = { videoBitsPerSecond: RW > 1280 ? 6e6 : 3.5e6, audioBitsPerSecond: 128000 }; if (RC.mt) opt.mimeType = RC.mt;
+  try { RC.mr = new MediaRecorder(RC.stream, opt) } catch (_) { delete opt.mimeType; RC.mr = new MediaRecorder(RC.stream, opt); RC.mt = RC.mr.mimeType || '' }
+  RC.mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data) }; RC.mr.onstop = finish; RC.mr.start(1000);
+  RC.t0 = performance.now(); compose(true); lastComp = RC.t0;
+  try { wl = await navigator.wakeLock.request('screen') } catch (_) { }
+  $('brp').disabled = $('bre').disabled = 0; $('brs').textContent = '● Kayıt sürüyor'; $('sp').hidden = 1; RC.busy = 0;
+}
+function recPause() {
+  if (!RC.on) return;
+  if (!RC.paused) { RC.mr.pause(); RC.acc += performance.now() - RC.t0; RC.paused = 1; $('brp').textContent = 'Devam' }
+  else { RC.mr.resume(); RC.t0 = performance.now(); RC.paused = 0; recFull = 1; $('brp').textContent = 'Duraklat' }
+}
+function recStop() { if (!RC.on) return; if (!RC.paused) RC.acc += performance.now() - RC.t0; RC.paused = 0; RC.on = 0; RC.mr.stop() }
+function finish() {
+  try { wl && wl.release() } catch (_) { } wl = null;
+  if (RC.stream) RC.stream.getTracks().forEach(t => t.stop()); RC.stream = null; recDeactivate();
+  RC.ext = (RC.mt || RC.mr.mimeType || '').includes('mp4') ? 'mp4' : 'webm'; RC.blob = new Blob(chunks, { type: RC.mt || RC.mr.mimeType || 'video/webm' }); chunks = []; RC.saved = 0;
+  $('brs').disabled = 0; $('brs').textContent = '● Kaydı Başlat'; $('brp').disabled = $('bre').disabled = 1; $('brp').textContent = 'Duraklat'; $('rd').hidden = 0;
+  $('rdi').textContent = 'Süre ' + fmt(RC.acc / 1000) + ' · ' + (RC.blob.size / 1048576).toFixed(0) + ' MB · ' + RC.ext.toUpperCase();
+  if (RC.ext === 'webm') fixWebmDuration(RC.blob, RC.acc).then(b => { if (b) RC.blob = b }).catch(() => { });
+}
+const fname = () => (F.course + ' - ' + F.day + '. Gün ' + F.step + '. Adım').replace(/[\\/:*?"<>|]/g, '').trim();
+function dl(b, n) { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = n; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000) }
+function dlVideo() { if (RC.blob) { dl(RC.blob, fname() + '.' + RC.ext); RC.saved = 1 } }
+function dlMarks() { const L = ['0:00 Giriş', ...RC.marks.map(m => fmt(m.t) + ' ' + m.n)].join('\n'); dl(new Blob([L], { type: 'text/plain' }), fname() + ' - bölümler.txt') }
+function newVid() { if (RC.blob && !RC.saved && !confirm('Video henüz indirilmedi. Yine de yeni videoya geçilsin mi?')) return; F.step++; $('f_s').value = F.step; saveF(); RC.blob = null; RC.saved = 1; $('rd').hidden = 1 }
+function addMark() { if (!RC.on) return note('Bölüm işareti için kayıt başlamış olmalı'); const t = elapsed() / 1000, n = $('mk').value.trim() || ('Bölüm ' + (RC.marks.length + 1)); RC.marks.push({ t, n }); $('mk').value = ''; note('İşaret eklendi: ' + fmt(t) + ' ' + n) }
+function openCast() {
+  const w = window.open('', 'ders-cekim', 'width=960,height=540'); if (!w) return note('Açılır pencere engellendi, izin ver');
+  w.document.write('<title>Çekim görünümü</title><body style="margin:0;background:#000"><video autoplay muted playsinline style="width:100vw;height:100vh;object-fit:contain"></video>'); w.document.close();
+  if (!REC.on) recActivate(); castOn = 1; recFull = 1; compose(true);
+  w.document.querySelector('video').srcObject = recCv.captureStream(30);
+  const iv = setInterval(() => { if (w.closed) { clearInterval(iv); castOn = 0; recDeactivate() } }, 1000);
+}
+addEventListener('beforeunload', e => { if (RC.on || (RC.blob && !RC.saved)) { e.preventDefault(); e.returnValue = '' } });
+document.addEventListener('visibilitychange', async () => { if (RC.on && !document.hidden && !wl) { try { wl = await navigator.wakeLock.request('screen') } catch (_) { } } });
+
+/* ---- WebM süre bilgisi: Chrome'un WebM kayıtlarında süre yazılmaz; oynatıcılarda ileri sarma bozulur. ----
+   Başlıktaki Segment > Info bölümüne Duration alanı eklenir. */
+async function fixWebmDuration(blob, ms) {
+  const head = new Uint8Array(await blob.slice(0, Math.min(blob.size, 65536)).arrayBuffer());
+  const vint = (b, i) => { const f = b[i]; let l = 1, m = 0x80; while (l <= 8 && !(f & m)) { l++; m >>= 1 } if (l > 8) return null; let v = f & (m - 1); for (let k = 1; k < l; k++) v = v * 256 + b[i + k]; return { l, v, unk: v === Math.pow(2, 7 * l) - 1 } };
+  const idAt = (b, i) => { const f = b[i]; const l = f & 0x80 ? 1 : f & 0x40 ? 2 : f & 0x20 ? 3 : f & 0x10 ? 4 : 0; if (!l) return null; let v = 0; for (let k = 0; k < l; k++) v = v * 256 + b[i + k]; return { l, v } };
+  let i = 0; const eb = idAt(head, i); if (!eb || eb.v !== 0x1A45DFA3) return null; let s = vint(head, i + eb.l); i += eb.l + s.l + s.v;
+  const sg = idAt(head, i); if (!sg || sg.v !== 0x18538067) return null; const ss = vint(head, i + sg.l); i += sg.l + ss.l;
+  while (i < head.length - 8) {
+    const id = idAt(head, i); if (!id) return null; const sz = vint(head, i + id.l); if (!sz) return null; const ds = i + id.l + sz.l;
+    if (id.v === 0x1549A966) { // Info
+      let j = ds, end = ds + sz.v, scale = 1e6, hasDur = false; while (j < end) { const cid = idAt(head, j), csz = vint(head, j + cid.l), cd0 = j + cid.l + csz.l; if (cid.v === 0x2AD7B1) { let v = 0; for (let k = 0; k < csz.v; k++) v = v * 256 + head[cd0 + k]; scale = v } if (cid.v === 0x4489) hasDur = true; j = cd0 + csz.v }
+      if (hasDur) return null;
+      const dur = new Uint8Array(11); dur.set([0x44, 0x89, 0x88]); new DataView(dur.buffer).setFloat64(3, ms * 1e6 / scale);
+      const infoBody = new Uint8Array(sz.v + 11); infoBody.set(head.subarray(ds, end)); infoBody.set(dur, sz.v);
+      const n = infoBody.length, szb = new Uint8Array(8); szb[0] = 0x01; let x = n; for (let k = 7; k >= 1; k--) { szb[k] = x & 255; x = Math.floor(x / 256) }
+      const newInfo = new Blob([new Uint8Array([0x15, 0x49, 0xA9, 0x66]), szb, infoBody]);
+      if (!ss.unk) return null; // segment boyutu bilinmiyorsa güvenle eklenebilir (Chrome böyle yazar)
+      return new Blob([blob.slice(0, i), newInfo, blob.slice(end)], { type: blob.type });
+    }
+    if (sz.unk || id.v === 0x114D9B74) return null; // SeekHead varsa konumlar kayar; dokunma
+    i = ds + sz.v;
+  }
+  return null;
+}
+
+async function initStudio() {
+  try { Object.assign(F, JSON.parse(localStorage.getItem('studyoF') || '{}')); F.logoData = localStorage.getItem('studyoLogo'); if (localStorage.getItem('studyoV') !== '2') { F.res = '720'; F.col = 'dar'; localStorage.setItem('studyoV', '2') } } catch (_) { }
+  F.logoImg = null;
+  try { document.fonts && document.fonts.load('700 38px Poppins') } catch (_) { }
+  bindF(); setLogo(); setCol(); setRes(); place(); refreshLay(); addEventListener('resize', place);
+  setInterval(refreshLay, 150); try { document.fonts && document.fonts.ready.then(() => sdirty = 1) } catch (_) { } setInterval(meter, 80);
+  setInterval(() => { if (RC.on) { $('tm').textContent = fmt(elapsed() / 1000); if (compN) { const a = compT / compN; $('dg').textContent = 'kare ' + a.toFixed(1) + ' ms'; $('dg').style.color = a > 12 ? '#e05252' : '#8f948d'; compT = compN = 0 } } else $('dg').textContent = '' }, 500);
+  showFmt();
+  if (navigator.mediaDevices) { await startCam(); await startMic(); try { await devList() } catch (_) { } } else note('Kamera ve mikrofon için https adresi gerekli');
+}
+initBoard(); initStudio(); requestAnimationFrame(loop);
+</script></body></html>
